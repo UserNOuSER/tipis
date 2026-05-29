@@ -1,0 +1,22 @@
+# Автоопределение + принудительно LF для всего кода
+* text=auto eol=lf
+
+*.cpp text
+*.h text
+*.py text
+*.md text
+*.txt text
+*.json text
+*.cmake text
+*.yml text
+*.yaml text
+
+# Скрипты запуска под Windows
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Бинарные файлы (не форматировать!)
+*.png binary
+*.jpg binary
+*.drawio binary
+*.sqlite binary
