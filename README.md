@@ -9,7 +9,7 @@
 |-----------|------------|
 | Ядро | C++17, CMake, pybind11 |
 | Интерфейс | Python 3.10+, DearPyGUI, SQLAlchemy |
-| БД | SQLite (прототип) / PostgreSQL (prod) |
+| БД | PostgreSQL |
 | Управление версиями | Git, Git Flow, Conventional Commits |
 
 ## 🚀 Быстрый старт
