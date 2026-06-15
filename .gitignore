@@ -32,3 +32,9 @@ dist/
 *~
 .DS_Store
 Thumbs.db
+.vs
+
+# === Сборка ===
+installer_output
+*.ilk
+*.pdb
