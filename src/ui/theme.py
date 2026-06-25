@@ -1,84 +1,131 @@
-import dearpygui.dearpygui as dpg
+import dearpygui.dearpygui as dpg  # ty:ignore[unresolved-import]
 import os
+from typing import NamedTuple
 
 _FONTS_DIR = os.path.join(os.path.dirname(__file__), "fonts")
-
 INTER_REGULAR = os.path.join(_FONTS_DIR, "Inter-Regular.ttf")
-INTER_MEDIUM  = os.path.join(_FONTS_DIR, "Inter-Medium.ttf")   # или Inter-SemiBold.ttf
+INTER_MEDIUM  = os.path.join(_FONTS_DIR, "Inter-Medium.ttf")
 INTER_BOLD    = os.path.join(_FONTS_DIR, "Inter-Bold.ttf")
 MONO_REGULAR  = os.path.join(_FONTS_DIR, "JetBrainsMono-Regular.ttf")
 
 
-def setup_design_system():
+class ThemePalette(NamedTuple):
+    bg_base: tuple
+    bg_surface: tuple
+    border_col: tuple
+    text_primary: tuple
+    text_disabled: tuple
+    primary: tuple
+    success: tuple
+    warning: tuple
+    error: tuple
+    plot_grid: tuple
+
+def setup_design_system(dark_mode=False):
     """Инициализация глобальной темы и шрифтов"""
-    # 1. Глобальная тема (Background, Surface, Border, Text, Inputs, Primary)
-    # Замените блок темы в setup_design_system() на этот:
+    
+    # Твоя палитра цветов
+    if dark_mode:
+        bg_base = (15, 17, 21)       # Background #0F1115
+        bg_surface = (30, 33, 40)    # Surface #1E2128
+        border_col = (51, 65, 85)    # Border #334155
+        text_primary = (226, 232, 240) # Text Primary #E2E8F0
+        text_disabled = (148, 163, 184) # Text Secondary #94A3B8
+        primary = (14, 165, 233)     # Primary Action #0EA5E9
+        success = (16, 185, 129)     # Success/OK #10B981
+        warning = (245, 158, 11)     # Warning #F59E0B
+        error = (239, 68, 68)        # Danger/Surge #EF4444
+        plot_grid = (30, 41, 59)     # Plot Grid #1E293B
+    else:
+        bg_base = (248, 250, 252)    # Background #F8FAFC
+        bg_surface = (255, 255, 255) # Surface #FFFFFF
+        border_col = (226, 232, 240) # Border #E2E8F0
+        text_primary = (30, 41, 59)  # Text Primary #1E293B
+        text_disabled = (100, 116, 139) # Text Secondary #64748B
+        primary = (2, 132, 199)      # Primary Action #0284C7
+        success = (5, 150, 105)      # Success/OK #059669
+        warning = (217, 119, 6)      # Warning #D97706
+        error = (220, 38, 38)        # Danger/Surge #DC2626
+        plot_grid = (241, 245, 249)  # Plot Grid #F1F5F9
+
+    # 1. Глобальная тема
     with dpg.theme() as global_theme:
         with dpg.theme_component(dpg.mvAll):
             # Фон и поверхности
-            dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (248, 250, 252))  # Background #F8FAFC
-            dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (255, 255, 255))   # Surface #FFFFFF
-            dpg.add_theme_color(dpg.mvThemeCol_PopupBg, (255, 255, 255))
+            dpg.add_theme_color(dpg.mvThemeCol_WindowBg, bg_base)
+            dpg.add_theme_color(dpg.mvThemeCol_ChildBg, bg_surface)
+            dpg.add_theme_color(dpg.mvThemeCol_PopupBg, bg_surface)
+            
+            # Границы и Текст
+            dpg.add_theme_color(dpg.mvThemeCol_Border, border_col)
+            dpg.add_theme_color(dpg.mvThemeCol_Text, text_primary)
+            dpg.add_theme_color(dpg.mvThemeCol_TextDisabled, text_disabled)
 
-            table_theme_map = {
-                "mvThemeCol_TableHeaderBg": (241, 245, 249),      # Input/Chart BG
-                "mvThemeCol_TableBorderStrong": (226, 232, 240),   # Border #E2E8F0
-                "mvThemeCol_TableBorderLight": (241, 245, 249),
-                "mvThemeCol_TableRowBg": (255, 255, 255),          # Surface #FFFFFF
-                "mvThemeCol_TableRowBgAlt": (248, 250, 252),       # Background #F8FAFC (чётные строки)
-                "mvThemeCol_HeaderHovered": (226, 232, 240),       # Hover для заголовков и строк
-            }
+            # Поля ввода / Фон графика
+            dpg.add_theme_color(dpg.mvThemeCol_FrameBg, plot_grid)
+            dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered, border_col)
+            dpg.add_theme_color(dpg.mvThemeCol_FrameBgActive, border_col)
 
-            for token_name, rgb in table_theme_map.items():
-                if hasattr(dpg, token_name):
-                    dpg.add_theme_color(getattr(dpg, token_name), rgb)
+            # Основные кнопки и акценты
+            dpg.add_theme_color(dpg.mvThemeCol_Button, primary)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, primary)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, primary)
+            dpg.add_theme_color(dpg.mvThemeCol_Header, primary)
+            dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered, primary)
 
-    # Границы
-    dpg.add_theme_color(dpg.mvThemeCol_Border, (226, 232, 240))
+            # Графики
+            dpg.add_theme_color(dpg.mvThemeCol_PlotLines, primary)
+            dpg.add_theme_color(dpg.mvThemeCol_PlotLinesHovered, primary)
+            dpg.add_theme_color(dpg.mvPlotCol_PlotBg, plot_grid)
+            
+            # Таблицы
+            dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg, plot_grid)
+            dpg.add_theme_color(dpg.mvThemeCol_TableBorderStrong, border_col)
+            dpg.add_theme_color(dpg.mvThemeCol_TableBorderLight, border_col)
+            dpg.add_theme_color(dpg.mvThemeCol_TableRowBg, bg_surface)
+            dpg.add_theme_color(dpg.mvThemeCol_TableRowBgAlt, bg_base)
 
-    # Текст
-    dpg.add_theme_color(dpg.mvThemeCol_Text, (30, 41, 59))            # Text Primary #1E293B
-    dpg.add_theme_color(dpg.mvThemeCol_TextDisabled, (100, 116, 139)) # Text Secondary #64748B
+            # Меню
+            dpg.add_theme_color(dpg.mvThemeCol_MenuBarBg, bg_surface)
+            
 
-    # Поля ввода / Фон графика
-    dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (241, 245, 249))      # Input/Chart BG #F1F5F9
-    dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered, (226, 232, 240))
-    dpg.add_theme_color(dpg.mvThemeCol_FrameBgActive, (226, 232, 240))
+    palette = ThemePalette(
+        bg_base=bg_base,
+        bg_surface=bg_surface,
+        border_col=border_col,
+        text_primary=text_primary,
+        text_disabled=text_disabled,
+        primary=primary,
+        success=success,
+        warning=warning,
+        error=error,
+        plot_grid=plot_grid,
+    )
 
-    # Основные кнопки и акценты
-    dpg.add_theme_color(dpg.mvThemeCol_Button, (2, 132, 199))         # Primary #0284C7
-    dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (3, 105, 161))
-    dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (7, 89, 133))
-    dpg.add_theme_color(dpg.mvThemeCol_Header, (2, 132, 199))
-    dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered, (3, 105, 161))
-
-    # Графики
-    dpg.add_theme_color(dpg.mvThemeCol_PlotLines, (2, 132, 199))
-    dpg.add_theme_color(dpg.mvThemeCol_PlotLinesHovered, (3, 105, 161))
-
-    # 2. Темы статусов (динамическое применение)
+    # 2. Темы статусов
     status_themes = {}
-    for name, color in {
-        "success": (5, 150, 105),   # #059669
-        "warning": (217, 119, 6),   # #D97706
-        "error":   (220, 38, 38)    # #DC2626
-    }.items():
+    for name, color in {"success": success, "warning": warning, "error": error}.items():
         with dpg.theme() as theme:
             with dpg.theme_component(dpg.mvAll):
                 dpg.add_theme_color(dpg.mvThemeCol_Text, color)
                 dpg.add_theme_color(dpg.mvThemeCol_Button, color)
-                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, color)
         status_themes[name] = theme
 
-    # 3️⃣ Регистрация шрифтов с разными начертаниями
+    # 3. Регистрация шрифтов
     with dpg.font_registry():
-        body_font = dpg.add_font(INTER_REGULAR, 16)          # Body 16px
-        h2_font   = dpg.add_font(INTER_MEDIUM, 20)           # H2 20px (полужирный)
-        h1_font   = dpg.add_font(INTER_BOLD, 24)             # H1 24px (жирный)
-        mono_font = dpg.add_font(MONO_REGULAR, 16)           # Mono 16px (цифры, логи)
+        try:
+            body_font = dpg.add_font(INTER_REGULAR, 16)
+            h2_font   = dpg.add_font(INTER_MEDIUM, 20)
+            h1_font   = dpg.add_font(INTER_BOLD, 24)
+            mono_font = dpg.add_font(MONO_REGULAR, 16)
+        except Exception:
+            # Fallback на системный шрифт, если папки fonts нет
+            body_font = dpg.add_font("C:\\Windows\\Fonts\\Arial.ttf", 16)
+            h2_font = body_font
+            h1_font = body_font
+            mono_font = body_font
 
-    # Привязка темы и шрифта по умолчанию
     dpg.bind_theme(global_theme)
     dpg.bind_font(body_font)
 
-    return global_theme, status_themes, body_font, h1_font, h2_font, mono_font
+    return global_theme, status_themes, palette, body_font, h1_font, h2_font, mono_font
