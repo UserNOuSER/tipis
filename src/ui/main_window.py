@@ -1,4 +1,3 @@
-# ui/main_window.py
 import dearpygui.dearpygui as dpg  # ty:ignore[unresolved-import]
 from ui.control_panel import ControlPanel
 from ui.telemetry_panel import TelemetryPanel
@@ -6,6 +5,8 @@ from ui.surge_plot import SurgePlot
 from ui.modals import Modals
 from ui.event_log import EventLogWindow
 from ui.user_management import UserManagementWindow 
+from ui.configurator import ConfiguratorWindow  
+from controllers.configurator_controller import ConfiguratorController  
 import sys
 
 class MainWindow:
@@ -18,6 +19,8 @@ class MainWindow:
         self.surge_plot = SurgePlot(palette)
         self.event_log_window = EventLogWindow(palette, controller)
         self.user_management_window = UserManagementWindow(palette, controller) 
+        self.configurator_controller = ConfiguratorController()
+        self.configurator_window = ConfiguratorWindow(palette, self.configurator_controller)
         
         self.controller.set_telemetry_panel(self.telemetry_panel)
         self.theme_manager.set_telemetry_panel(self.telemetry_panel)
@@ -33,6 +36,7 @@ class MainWindow:
         with dpg.viewport_menu_bar():
             dpg.add_menu_item(label="Журнал событий", callback=self.show_event_log)
             dpg.add_menu_item(label="Управление пользователями", callback=self.show_user_management) 
+            dpg.add_menu_item(label="Конфигуратор", callback=self.show_configurator)  
             dpg.add_menu_item(label="Экспорт отчета", callback=lambda: print("Export"))
             with dpg.menu(label="Настройки"):
                 dpg.add_menu_item(label="Поменять цвет темы", callback=self.toggle_theme)
@@ -69,6 +73,9 @@ class MainWindow:
         # Окно управления пользователями
         self.user_management_window.create()  
         
+        # Окно конфигуратора
+        self.configurator_window.create()
+        
         # Регистрируем коллбэк на изменение размера окна
         dpg.set_viewport_resize_callback(self._on_viewport_resize)
         
@@ -88,6 +95,10 @@ class MainWindow:
     def show_user_management(self, sender=None, app_data=None):
         """Показывает окно управления пользователями"""
         self.user_management_window.show()
+
+    def show_configurator(self, sender=None, app_data=None):
+        """Показывает окно конфигуратора"""
+        self.configurator_window.show()
 
     def _on_viewport_resize(self, sender):
         try:

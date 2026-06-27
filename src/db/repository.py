@@ -1,4 +1,3 @@
-# db/repository.py
 import json
 import logging
 from typing import List, Optional, Dict, Any
@@ -398,5 +397,351 @@ class Database:
             logger.error(f"❌ Ошибка сброса пароля: {e}")
             session.rollback()
             return False
+        finally:
+            session.close()
+
+    # ==========================================
+    # Обновление конфигурации нечёткой логики
+    # ==========================================
+    def update_fuzzy_config(self, config_id: int, version: str,
+                           input_vars: Dict, output_vars: Dict,
+                           membership_params: Dict, rules: List[Dict],
+                           updated_by: str) -> bool:
+        """
+        Обновляет конфигурацию и связанные правила.
+        Использует стратегию 'удалить старые правила → создать новые'.
+        """
+        session = self.get_session()
+        try:
+            from db.models import FuzzyConfig, FuzzyRule
+            
+            # 1. Находим конфигурацию
+            config = session.query(FuzzyConfig).filter_by(
+                ConfigID=config_id, Version=version
+            ).first()
+            
+            if not config:
+                logger.warning(f"Конфиг {config_id} v{version} не найден")
+                return False
+            
+            # 2. Обновляем саму конфигурацию
+            config.InputVars = json.dumps(input_vars) if not isinstance(input_vars, str) else input_vars
+            config.OutputVars = json.dumps(output_vars) if not isinstance(output_vars, str) else output_vars
+            config.MembershipParams = json.dumps(membership_params) if not isinstance(membership_params, str) else membership_params
+            config.UpdatedBy = updated_by
+            
+            # 3. Удаляем старые правила
+            session.query(FuzzyRule).filter_by(
+                ConfigID=config_id, Version=version
+            ).delete()
+            
+            # 4. Создаём новые правила
+            for rule_data in rules:
+                new_rule = FuzzyRule(
+                    ConfigID=config_id,
+                    Version=version,
+                    AntecedentKey=rule_data["antecedent"],
+                    Consequent=rule_data["consequent"],
+                    Weight=rule_data.get("weight", 1.0),
+                    Priority=rule_data.get("priority", 1),
+                    IsActive=True
+                )
+                session.add(new_rule)
+            
+            session.commit()
+            logger.info(f"✅ Конфиг {config_id} v{version} обновлён ({len(rules)} правил)")
+            return True
+            
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка обновления конфига: {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    # ==========================================
+    # Работа с компрессорами
+    # ==========================================
+    def get_all_compressors(self) -> List[Dict[str, Any]]:
+        """Получает список всех компрессоров с их профилями"""
+        session = self.get_session()
+        try:
+            from db.models import Compressor, FuzzyConfig
+            result = session.query(Compressor, FuzzyConfig.Name).join(
+                FuzzyConfig, Compressor.ProfileID == FuzzyConfig.ConfigID
+            ).all()
+            
+            compressors = []
+            for comp, profile_name in result:
+                compressors.append({
+                    "compressor_id": comp.CompressorID,
+                    "name": comp.Name,
+                    "model": comp.Model,
+                    "profile_id": comp.ProfileID,
+                    "profile_name": profile_name or f"Профиль #{comp.ProfileID}"
+                })
+            
+            logger.info(f"🔧 Загружено {len(compressors)} компрессоров")
+            return compressors
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка загрузки компрессоров: {e}")
+            return []
+        finally:
+            session.close()
+
+    def get_compressor(self, compressor_id: int) -> Optional[Dict[str, Any]]:
+        """Получает данные конкретного компрессора"""
+        session = self.get_session()
+        try:
+            from db.models import Compressor, FuzzyConfig
+            result = session.query(Compressor, FuzzyConfig.Name).join(
+                FuzzyConfig, Compressor.ProfileID == FuzzyConfig.ConfigID
+            ).filter(Compressor.CompressorID == compressor_id).first()
+            
+            if result:
+                comp, profile_name = result
+                return {
+                    "compressor_id": comp.CompressorID,
+                    "name": comp.Name,
+                    "model": comp.Model,
+                    "profile_id": comp.ProfileID,
+                    "profile_name": profile_name
+                }
+            return None
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка загрузки компрессора: {e}")
+            return None
+        finally:
+            session.close()
+
+    def assign_profile_to_compressor(self, compressor_id: int, profile_id: int) -> bool:
+        """Привязывает профиль к компрессору"""
+        session = self.get_session()
+        try:
+            from db.models import Compressor
+            comp = session.query(Compressor).filter_by(CompressorID=compressor_id).first()
+            if not comp:
+                return False
+            
+            comp.ProfileID = profile_id
+            session.commit()
+            logger.info(f"✅ Компрессору {compressor_id} назначен профиль {profile_id}")
+            return True
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка назначения профиля: {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    # ==========================================
+    # Работа с профилями правил
+    # ==========================================
+    def get_all_profiles(self) -> List[Dict[str, Any]]:
+        """Получает список всех профилей правил"""
+        session = self.get_session()
+        try:
+            from db.models import FuzzyConfig
+            profiles = session.query(FuzzyConfig).all()
+            
+            result = []
+            for p in profiles:
+                result.append({
+                    "profile_id": p.ConfigID,
+                    "name": p.Name or f"Профиль #{p.ConfigID}",
+                    "description": p.Description,
+                    "version": p.Version,
+                    "updated_at": p.UpdatedAt,
+                    "updated_by": p.UpdatedBy
+                })
+            
+            logger.info(f"📋 Загружено {len(result)} профилей")
+            return result
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка загрузки профилей: {e}")
+            return []
+        finally:
+            session.close()
+
+    def load_profile_config(self, profile_id: int) -> Optional[Dict[str, Any]]:
+        """Загружает конфигурацию конкретного профиля"""
+        session = self.get_session()
+        try:
+            from db.models import FuzzyConfig, FuzzyRule
+            config = session.query(FuzzyConfig).filter_by(ConfigID=profile_id).first()
+            
+            if not config:
+                return None
+            
+            rules = session.query(FuzzyRule).filter_by(
+                ConfigID=profile_id, IsActive=True
+            ).order_by(FuzzyRule.Priority).all()
+            
+            input_vars = config.InputVars if isinstance(config.InputVars, dict) else json.loads(config.InputVars or "{}")
+            output_vars = config.OutputVars if isinstance(config.OutputVars, dict) else json.loads(config.OutputVars or "{}")
+            membership_params = config.MembershipParams if isinstance(config.MembershipParams, dict) else json.loads(config.MembershipParams or "{}")
+            
+            return {
+                "profile_id": config.ConfigID,
+                "name": config.Name,
+                "description": config.Description,
+                "version": config.Version,
+                "input_vars": input_vars,
+                "output_vars": output_vars,
+                "membership_params": membership_params,
+                "rules": [
+                    {
+                        "rule_id": r.RuleID,
+                        "antecedent": r.AntecedentKey,
+                        "consequent": r.Consequent,
+                        "weight": r.Weight,
+                        "priority": r.Priority
+                    }
+                    for r in rules
+                ]
+            }
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка загрузки профиля: {e}")
+            return None
+        finally:
+            session.close()
+
+    def create_profile(self, name: str, description: str = "", 
+                      input_vars: Dict = None, output_vars: Dict = None,  # ty:ignore[invalid-parameter-default]
+                      membership_params: Dict = None, rules: List[Dict] = None,  # ty:ignore[invalid-parameter-default]
+                      created_by: str = "system") -> Optional[int]:
+        """Создаёт новый профиль правил. Возвращает ID нового профиля."""
+        session = self.get_session()
+        try:
+            from db.models import FuzzyConfig, FuzzyRule
+            
+            new_config = FuzzyConfig(
+                Version="1.0.0",
+                Name=name,
+                Description=description,
+                InputVars=json.dumps(input_vars or {}),
+                OutputVars=json.dumps(output_vars or {}),
+                MembershipParams=json.dumps(membership_params or {}),
+                UpdatedBy=created_by
+            )
+            session.add(new_config)
+            session.flush()  # Получаем ConfigID
+            
+            # Добавляем правила
+            if rules:
+                for rule_data in rules:
+                    new_rule = FuzzyRule(
+                        ConfigID=new_config.ConfigID,
+                        Version="1.0.0",
+                        AntecedentKey=rule_data["antecedent"],
+                        Consequent=rule_data["consequent"],
+                        Weight=rule_data.get("weight", 1.0),
+                        Priority=rule_data.get("priority", 1),
+                        IsActive=True
+                    )
+                    session.add(new_rule)
+            
+            session.commit()
+            logger.info(f"✅ Создан профиль '{name}' (ID={new_config.ConfigID})")
+            return new_config.ConfigID
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка создания профиля: {e}")
+            session.rollback()
+            return None
+        finally:
+            session.close()
+
+    def update_profile(self, profile_id: int, name: str = None,  # ty:ignore[invalid-parameter-default]
+                      description: str = None, input_vars: Dict = None,  # ty:ignore[invalid-parameter-default]
+                      output_vars: Dict = None, membership_params: Dict = None,  # ty:ignore[invalid-parameter-default]
+                      rules: List[Dict] = None, updated_by: str = "system") -> bool:  # ty:ignore[invalid-parameter-default]
+        """Обновляет профиль правил"""
+        session = self.get_session()
+        try:
+            from db.models import FuzzyConfig, FuzzyRule
+            config = session.query(FuzzyConfig).filter_by(ConfigID=profile_id).first()
+            if not config:
+                return False
+            
+            if name is not None:
+                config.Name = name
+            if description is not None:
+                config.Description = description
+            if input_vars is not None:
+                config.InputVars = json.dumps(input_vars) if not isinstance(input_vars, str) else input_vars
+            if output_vars is not None:
+                config.OutputVars = json.dumps(output_vars) if not isinstance(output_vars, str) else output_vars
+            if membership_params is not None:
+                config.MembershipParams = json.dumps(membership_params) if not isinstance(membership_params, str) else membership_params
+            config.UpdatedBy = updated_by
+            
+            # Если переданы правила — заменяем все
+            if rules is not None:
+                session.query(FuzzyRule).filter_by(ConfigID=profile_id).delete()
+                for rule_data in rules:
+                    new_rule = FuzzyRule(
+                        ConfigID=profile_id,
+                        Version="1.0.0",
+                        AntecedentKey=rule_data["antecedent"],
+                        Consequent=rule_data["consequent"],
+                        Weight=rule_data.get("weight", 1.0),
+                        Priority=rule_data.get("priority", 1),
+                        IsActive=True
+                    )
+                    session.add(new_rule)
+            
+            session.commit()
+            logger.info(f"✅ Профиль {profile_id} обновлён")
+            return True
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка обновления профиля: {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def delete_profile(self, profile_id: int) -> tuple[bool, str]:
+        """
+        Удаляет профиль правил.
+        Возвращает (успех, сообщение).
+        Не позволяет удалить профиль, если он назначен компрессорам.
+        """
+        session = self.get_session()
+        try:
+            from db.models import FuzzyConfig, Compressor, FuzzyRule
+            
+            # 1. Проверяем, есть ли компрессоры с этим профилем
+            linked_compressors = session.query(Compressor).filter_by(ProfileID=profile_id).all()
+            if linked_compressors:
+                names = ", ".join([c.Name for c in linked_compressors])
+                msg = f"Профиль назначен компрессорам: {names}. Сначала переназначьте их."
+                logger.warning(f"⚠️ {msg}")
+                return False, msg
+            
+            # 2. Проверяем, не последний ли это профиль
+            total_profiles = session.query(FuzzyConfig).count()
+            if total_profiles <= 1:
+                msg = "Нельзя удалить единственный профиль в системе"
+                logger.warning(f"⚠️ {msg}")
+                return False, msg
+            
+            # 3. Находим и удаляем профиль
+            profile = session.query(FuzzyConfig).filter_by(ConfigID=profile_id).first()
+            if not profile:
+                return False, "Профиль не найден"
+            
+            profile_name = profile.Name or f"#{profile_id}"
+            
+            # Каскадное удаление правил (настроено в модели)
+            session.delete(profile)
+            session.commit()
+            
+            logger.info(f"🗑️ Удалён профиль '{profile_name}' (ID={profile_id})")
+            return True, f"Профиль '{profile_name}' удалён"
+            
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка удаления профиля: {e}")
+            session.rollback()
+            return False, f"Ошибка БД: {e}"
         finally:
             session.close()
