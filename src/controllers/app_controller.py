@@ -189,6 +189,23 @@ class AppController:
         if dpg.does_item_exist("surge_alert"):
             dpg.configure_item("surge_alert", show=True)
 
+    def get_event_log(self, 
+                      compressor_id: int = 1,
+                      start_date=None,
+                      end_date=None,
+                      limit: int = 100):
+        """Получает журнал событий из БД"""
+        try:
+            return self.db.get_event_log(
+                compressor_id=compressor_id,
+                start_date=start_date,
+                end_date=end_date,
+                limit=limit
+            )
+        except Exception as e:
+            logger.error(f"Ошибка получения журнала: {e}")
+            return []
+
     def get_callbacks(self):
         """Возвращает словарь коллбэков для привязки к кнопкам UI"""
         return {
@@ -196,3 +213,43 @@ class AppController:
             'export_data': self.export_data,
             'test_alarm': self.test_alarm,
         }
+    def get_all_users(self):
+        """Получает список всех пользователей"""
+        try:
+            return self.db.get_all_users()
+        except Exception as e:
+            logger.error(f"Ошибка получения пользователей: {e}")
+            return []
+
+    def create_user(self, username: str, password: str, role: str) -> bool:
+        """Создаёт нового пользователя"""
+        try:
+            return self.db.create_user(username, password, role)
+        except Exception as e:
+            logger.error(f"Ошибка создания пользователя: {e}")
+            return False
+
+    def update_user(self, user_id: int, username: str | None = None, role: str | None = None, is_active: bool | None = None) -> bool:
+        """Обновляет данные пользователя"""
+        try:
+            return self.db.update_user(user_id, username, role, is_active)
+        except Exception as e:
+            logger.error(f"Ошибка обновления пользователя: {e}")
+            return False
+
+    def delete_user(self, user_id: int) -> bool:
+        """Удаляет пользователя"""
+        try:
+            return self.db.delete_user(user_id)
+        except Exception as e:
+            logger.error(f"Ошибка удаления пользователя: {e}")
+            return False
+
+    def reset_password(self, user_id: int, new_password: str) -> bool:
+        """Сбрасывает пароль пользователя"""
+        try:
+            return self.db.reset_password(user_id, new_password)
+        except Exception as e:
+            logger.error(f"Ошибка сброса пароля: {e}")
+            return False
+    

@@ -34,7 +34,7 @@ class Database:
 
     def get_session(self) -> Session:
         """Создает новую сессию для транзакций."""
-        return self._session_factory()
+        return self._session_factory()  # ty:ignore[call-non-callable]
 
     # ==========================================
     # 1. Загрузка конфигурации нечеткой логики
@@ -192,5 +192,211 @@ class Database:
         except SQLAlchemyError as e:
             logger.error(f"❌ Ошибка загрузки границы помпажа: {e}")
             return []
+        finally:
+            session.close()
+
+    # ==========================================
+    # 5. Получение журнала событий с фильтрацией   
+    # ==========================================
+
+    def get_event_log(self, 
+                      compressor_id: int = 1, 
+                      start_date: Optional[datetime] = None,
+                      end_date: Optional[datetime] = None,
+                      limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Получает журнал событий с фильтрами.
+        """
+        session = self.get_session()
+        try:
+            query = session.query(EventLog).filter(
+                EventLog.CompressorID == compressor_id
+            )
+            
+            if start_date:
+                query = query.filter(EventLog.Timestamp >= start_date)
+            if end_date:
+                query = query.filter(EventLog.Timestamp <= end_date)
+            
+            events = query.order_by(EventLog.Timestamp.desc()).limit(limit).all()
+            
+            result = []
+            for event in events:
+                result.append({
+                    "event_id": event.EventID,
+                    "timestamp": event.Timestamp,
+                    "q": event.Q,
+                    "h": event.H,
+                    "p_in": event.P_in,
+                    "p_out": event.P_out,
+                    "t_in": event.T_in,
+                    "margin": event.Margin,
+                    "dqdt": event.dQdt,
+                    "valve_position": event.ValvePosition,
+                    "status": event.Status,
+                    "rule_fired": event.RuleFired,
+                    "compressor_id": event.CompressorID,
+                    "user_id": event.UserID
+                })
+            
+            logger.info(f" Загружено {len(result)} событий из журнала")
+            return result
+            
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка загрузки журнала: {e}")
+            return []
+        finally:
+            session.close()
+
+    # ==========================================
+    # 6. Получение деталей конкретного события
+    # ==========================================
+
+    def get_event_details(self, event_id: int) -> Optional[Dict[str, Any]]:
+        """Получает детали конкретного события"""
+        session = self.get_session()
+        try:
+            event = session.query(EventLog).filter_by(EventID=event_id).first()
+            if event:
+                return {
+                    "event_id": event.EventID,
+                    "timestamp": event.Timestamp,
+                    "q": event.Q,
+                    "h": event.H,
+                    "p_in": event.P_in,
+                    "p_out": event.P_out,
+                    "t_in": event.T_in,
+                    "margin": event.Margin,
+                    "dqdt": event.dQdt,
+                    "valve_position": event.ValvePosition,
+                    "status": event.Status,
+                    "rule_fired": event.RuleFired
+                }
+            return None
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка загрузки деталей события: {e}")
+            return None
+        finally:
+            session.close()
+
+    def get_all_users(self) -> List[Dict[str, Any]]:
+        """Получает список всех пользователей"""
+        session = self.get_session()
+        try:
+            from db.models import User
+            users = session.query(User).all()
+            
+            result = []
+            for user in users:
+                # Безопасно получаем поля через getattr (если поля нет — подставляем дефолт)
+                result.append({
+                    "user_id": getattr(user, 'UserID', 0),
+                    "username": getattr(user, 'Username', ''),
+                    "role": getattr(user, 'Role', 'OPERATOR'),
+                    "is_active": getattr(user, 'IsActive', True)
+                })
+            
+            logger.info(f"👥 Загружено {len(result)} пользователей")
+            return result
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка загрузки пользователей: {e}")
+            return []
+        finally:
+            session.close()
+
+    def create_user(self, username: str, password: str, role: str = "OPERATOR") -> bool:
+        """Создаёт нового пользователя"""
+        session = self.get_session()
+        try:
+            from db.models import User
+            import hashlib
+            
+            # Хэшируем пароль (в продакшене используй bcrypt!)
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            
+            new_user = User(
+                Username=username,
+                PasswordHash=password_hash,
+                Role=role,
+                IsActive=True
+            )
+            session.add(new_user)
+            session.commit()
+            logger.info(f"✅ Создан пользователь: {username} (роль: {role})")
+            return True
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка создания пользователя: {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def update_user(self, user_id: int, username: Optional[str] = None, role: Optional[str] = None, is_active: Optional[bool] = None) -> bool:
+        """Обновляет данные пользователя"""
+        session = self.get_session()
+        try:
+            from db.models import User
+            user = session.query(User).filter_by(UserID=user_id).first()
+            if not user:
+                logger.warning(f"Пользователь {user_id} не найден")
+                return False
+            
+            if username is not None:
+                user.Username = username
+            if role is not None:
+                user.Role = role
+            if is_active is not None:
+                user.IsActive = is_active
+            
+            session.commit()
+            logger.info(f"✅ Обновлён пользователь: {user_id}")
+            return True
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка обновления пользователя: {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def delete_user(self, user_id: int) -> bool:
+        """Удаляет пользователя"""
+        session = self.get_session()
+        try:
+            from db.models import User
+            user = session.query(User).filter_by(UserID=user_id).first()
+            if not user:
+                return False
+            
+            session.delete(user)
+            session.commit()
+            logger.info(f"🗑️ Удалён пользователь: {user_id}")
+            return True
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка удаления пользователя: {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def reset_password(self, user_id: int, new_password: str) -> bool:
+        """Сбрасывает пароль пользователя"""
+        session = self.get_session()
+        try:
+            from db.models import User
+            import hashlib
+            
+            user = session.query(User).filter_by(UserID=user_id).first()
+            if not user:
+                return False
+            
+            password_hash = hashlib.sha256(new_password.encode()).hexdigest()
+            user.PasswordHash = password_hash
+            session.commit()
+            logger.info(f"🔑 Сброшен пароль для пользователя: {user_id}")
+            return True
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка сброса пароля: {e}")
+            session.rollback()
+            return False
         finally:
             session.close()
