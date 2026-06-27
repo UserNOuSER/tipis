@@ -1,17 +1,14 @@
-# src/main.py
 import sys
 import os
 import traceback
 
-# --- ФИКС ПУТЕЙ ИМПОРТА ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
-# --------------------------
 
 try:
     import dearpygui.dearpygui as dpg  # ty:ignore[unresolved-import]
-    from ui.theme import setup_design_system
+    from ui.theme import theme_manager  # <-- Импортируем глобальный экземпляр
     from db.init_db import initialize_database
     from controllers.app_controller import AppController
     from ui.main_window import MainWindow
@@ -32,13 +29,16 @@ def main():
         
         print("🎨 Создание GUI...", file=sys.stderr)
         dpg.create_context()
-        global_theme, status_themes, palette, body_font, h1_font, h2_font, mono_font = setup_design_system(dark_mode=False)
+        
+        # Инициализируем глобальный менеджер тем
+        theme_manager.initialize()
+        palette = theme_manager.get_palette()
         
         # Создаем контроллер и передаем ему ядро
-        controller = AppController(core)
+        controller = AppController()
         
-        # Создаем главное окно и передаем контроллер
-        main_window = MainWindow(palette, controller)
+        # Передаем theme_manager в MainWindow
+        main_window = MainWindow(palette, controller, theme_manager)
         main_window.create()
         
         # Инициализируем систему

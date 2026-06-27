@@ -1,13 +1,12 @@
-# ui/modals.py
 import dearpygui.dearpygui as dpg  # ty:ignore[unresolved-import]
 
 class Modals:
-    def __init__(self, palette):
+    def __init__(self, palette):  
         self.palette = palette
 
     def create(self):
         # Окно алерта помпажа
-        with dpg.window(label="⚠️ ВНИМАНИЕ!", tag="surge_alert", show=False, modal=True, no_move=True):
+        with dpg.window(label="ВНИМАНИЕ!", tag="surge_alert", show=False, modal=True, no_move=True):
             dpg.add_text("ОБНАРУЖЕН ПОМПАЖ!", tag="surge_alert_text", color=self.palette.error + (255,))
             dpg.add_text("Принимаются меры защиты...")
             dpg.add_button(label="Подтвердить", callback=lambda: dpg.configure_item("surge_alert", show=False))

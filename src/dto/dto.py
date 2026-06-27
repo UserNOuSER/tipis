@@ -1,4 +1,3 @@
-# core/dto.py
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict
@@ -9,10 +8,10 @@ from typing import Dict
 # ==========================================
 @dataclass
 class SensorData:
-    Q: float = 0.0                # Расход
-    P_in: float = 0.0             # Давление на входе
-    P_out: float = 0.0            # Давление на выходе
-    T: float = 20.0               # Температура
+    Q: float = 0.0
+    P_in: float = 0.0
+    P_out: float = 0.0
+    T: float = 20.0
     timestamp: datetime = field(default_factory=datetime.now)
 
 # ==========================================
@@ -21,20 +20,14 @@ class SensorData:
 # ==========================================
 @dataclass
 class ProcessedData:
-    Q_rel: float = 0.0            # Относительный расход
-    H_rel: float = 0.0            # Относительный напор
-    margin: float = 0.0           # Маржа помпажа
-    dQdt: float = 0.0             # Скорость изменения расхода (производная)
+    Q_rel: float = 0.0
+    H_rel: float = 0.0
+    margin: float = 0.0
+    dQdt: float = 0.0
 
-# ==========================================
-# 3. FuzzySet
-# Результат фаззификации (степени принадлежности)
-# В Python Map<string, float> -> Dict[str, float]
-# ==========================================
 @dataclass
 class FuzzySet:
-    degrees: Dict[str, float] = field(default_factory=dict) 
-    # Пример: {"Low": 0.2, "Mid": 0.8, "High": 0.0}
+    degrees: Dict[str, float] = field(default_factory=dict)
 
 # ==========================================
 # 4. RuleOutput
@@ -52,9 +45,11 @@ class RuleOutput:
 # ==========================================
 @dataclass
 class ControlSignal:
-    valveOpenPercent: float = 0.0 # % открытия байпасного клапана
+    valveOpenPercent: float = 0.0
     timestamp: datetime = field(default_factory=datetime.now)
-    status: str = "NORMAL"        # Статус (например, "NORMAL", "WARNING", "SURGE")
+    status: str = "NORMAL"
+    lastUsedRule: str = ""  # <-- ДОБАВЛЕНО: последнее сработавшее правило
+    reactionTime: float = 0.0  # <-- ДОБАВЛЕНО: время реакции ядра в мс
 
 # ==========================================
 # 6. Point

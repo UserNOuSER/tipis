@@ -28,5 +28,5 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . --config Release
 
 # 4. Запуск
-cd ../src/ui
+cd ../src
 python main.py
