@@ -4,7 +4,7 @@ import logging
 import traceback
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # ✅ Было INFO, стало DEBUG
     format='%(levelname)s:%(name)s:%(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -79,9 +79,14 @@ def main():
         # 10. Главное окно
         print("🏠 [10/10] Создание главного окна...", flush=True)
         from ui.main_window import MainWindow
-        main_window = MainWindow(palette, app_controller, auth_controller)
+        main_window = MainWindow(palette, app_controller, auth_controller, theme_manager) 
         main_window.create()
         print("✅ [10/10] Главное окно создано", flush=True)
+        
+        # Устанавливаем ссылки и запускаем симуляцию ПОСЛЕ создания UI
+        app_controller.set_surge_plot(main_window.surge_plot)
+        app_controller.set_telemetry_panel(main_window.telemetry_panel)
+        app_controller.start_simulation(interval_ms=100)
         
         # Обновляем статус в UI
         app_controller.update_status_ui("OK", "✅ ГОТОВ К РАБОТЕ")

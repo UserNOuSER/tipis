@@ -10,11 +10,12 @@ from controllers.configurator_controller import ConfiguratorController
 import sys
 
 class MainWindow:
-    def __init__(self, palette, controller, auth_controller):
+    def __init__(self, palette, controller, auth_controller, theme_manager):
         self.palette = palette
         self.controller = controller
         self.auth_controller = auth_controller
-        
+        self.theme_manager = theme_manager
+
         self.control_panel = ControlPanel(palette)
         self.telemetry_panel = TelemetryPanel(palette)
         self.surge_plot = SurgePlot(palette)
@@ -25,7 +26,6 @@ class MainWindow:
         self.configurator_window = ConfiguratorWindow(palette, self.configurator_controller)
         
         self.controller.set_telemetry_panel(self.telemetry_panel)
-        
         self.plot_ratio = 0.70
         self.telemetry_ratio = 0.30
         self.window_padding_x = 100
@@ -66,6 +66,9 @@ class MainWindow:
                     dpg.add_text("Мониторинг рабочей точки", color=self.palette.primary + (255,))
                     dpg.add_separator()
                     self.surge_plot.create(parent_tag="plot_container")
+                    
+                    # Устанавливаем ссылку на график в контроллер
+                    self.controller.set_surge_plot(self.surge_plot)
                 
                 with dpg.child_window(tag="telemetry_container", width=360, height=400, label="Телеметрия"):
                     self.telemetry_panel.create(parent_tag="telemetry_container")
@@ -73,6 +76,19 @@ class MainWindow:
             with dpg.child_window(tag="control_container", width=-1, height=self.control_panel_height, label="Управление"):
                 callbacks = self.controller.get_callbacks()
                 self.control_panel.create(parent_tag="control_container", callbacks=callbacks)
+                
+                #  Кнопки управления симуляцией
+                dpg.add_spacer(height=5)
+                with dpg.group(horizontal=True):
+                    dpg.add_text("Симуляция:", color=self.palette.text_primary + (255,))
+                    dpg.add_button(label="▶ Старт", callback=self._start_sim, width=80)
+                    dpg.add_button(label="⏸ Стоп", callback=self._stop_sim, width=80)
+                    dpg.add_spacer(width=20)
+                    dpg.add_button(label="Норма", callback=lambda: self.controller.set_simulation_mode("normal"), width=80)
+                    dpg.add_button(label="Предупреждение", callback=lambda: self.controller.set_simulation_mode("warning"), width=120)
+                    dpg.add_button(label="Помпаж", callback=lambda: self.controller.set_simulation_mode("surge"), width=80)
+
+
         
         # Модальные окна
         Modals(self.palette).create()
@@ -82,16 +98,11 @@ class MainWindow:
         self.user_management_window.create()
         self.configurator_window.create()
         
-        # ❌ УДАЛЕНО: Создание viewport (оно уже создано в main.py)
-        # dpg.create_viewport(...)  ← УДАЛИТЬ
-        # dpg.setup_dearpygui()     ← УДАЛИТЬ
-        # dpg.show_viewport()       ← УДАЛИТЬ
-        
-        # ✅ ОСТАВИТЬ ТОЛЬКО:
         dpg.set_viewport_resize_callback(self._on_viewport_resize)
         dpg.set_primary_window("main_window", True)
         
         self._on_viewport_resize(None)
+        self.controller.set_surge_plot(self.surge_plot)
 
     def show_event_log(self, sender=None, app_data=None):
         self.event_log_window.show()
@@ -133,7 +144,34 @@ class MainWindow:
             print(f"Ошибка при ресайзе: {e}", file=sys.stderr)
 
     def toggle_theme(self, sender, app_data=None):
-        print("Theme toggle not implemented yet", file=sys.stderr)
+        """Переключает тему между светлой и тёмной"""
+        # ✅ Используем self.theme_manager вместо self.controller
+        new_theme = self.theme_manager.toggle_theme()
+        print(f"🎨 Тема переключена на: {new_theme}", file=sys.stderr)
+        
+        # Обновляем цвета в UI
+        palette = self.theme_manager.get_palette()  # ✅ Тоже через theme_manager
+        self.palette = palette  # ✅ Обновляем локальную палитру
+        
+        # Обновляем все компоненты
+        self.surge_plot.palette = palette
+        self.telemetry_panel.palette = palette
+        self.control_panel.palette = palette
+        self.event_log_window.palette = palette
+        self.user_management_window.palette = palette
+        self.configurator_window.palette = palette
+        
+        # ✅ Вызываем update_theme_colors для компонентов, у которых есть этот метод
+        if hasattr(self.telemetry_panel, 'update_theme_colors'):
+            self.telemetry_panel.update_theme_colors(palette)
 
     def show_help(self):
         dpg.configure_item("help_window", show=True)
+
+    def _start_sim(self, sender=None, app_data=None):
+        """Запускает симуляцию"""
+        self.controller.start_simulation(interval_ms=100) # 10 раз в секунду
+    
+    def _stop_sim(self, sender=None, app_data=None):
+        """Останавливает симуляцию"""
+        self.controller.stop_simulation()

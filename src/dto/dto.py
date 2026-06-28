@@ -1,3 +1,4 @@
+# dto/dto.py
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict
@@ -48,8 +49,13 @@ class ControlSignal:
     valveOpenPercent: float = 0.0
     timestamp: datetime = field(default_factory=datetime.now)
     status: str = "NORMAL"
-    lastUsedRule: str = ""  # <-- ДОБАВЛЕНО: последнее сработавшее правило
-    reactionTime: float = 0.0  # <-- ДОБАВЛЕНО: время реакции ядра в мс
+    lastUsedRule: str = ""
+    reactionTime: float = 0.0
+    compressorName: str = "CC-45X"
+    # ✅ НОВЫЕ ПОЛЯ для телеметрии
+    gasComposition: str = "Природный газ (CH₄ 92%)"
+    surgeStatus: str = "АПЗ: Норма"
+    marginPercent: float = 0.0
 
 # ==========================================
 # 6. Point
