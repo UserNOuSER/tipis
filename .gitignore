@@ -38,3 +38,9 @@ Thumbs.db
 installer_output
 *.ilk
 *.pdb
+
+# === Обучение библиотекам ===
+testing_dpg
+
+# === Файлы, образующиеся при работе программы ===
+export*.json
