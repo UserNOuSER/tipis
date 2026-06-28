@@ -2,8 +2,10 @@ import sys
 import time
 import random
 from datetime import datetime
+from typing import Dict, Any, Optional
 from dto.dto import SensorData, ProcessedData, FuzzySet, RuleOutput, ControlSignal, Point
 from simpful import FuzzySystem, AutoTriangle  # ty:ignore[unresolved-import]
+from core.base_engine import IEngine 
 
 # ==========================================
 # Слой Controller: Вычислительное ядро (Mock)
@@ -272,22 +274,19 @@ class AntiSurgeCore:
         return self._cycle_count
 
 
-class CoreBridge:
-    """Адаптер для связи Python ↔ C++ (pybind11). В моке просто оборачивает ядро."""
-    
+class CoreBridge(IEngine):  # ✅ Наследуем от IEngine
+    """Адаптер для связи Python ↔ C++ (pybind11). В моке оборачивает AntiSurgeCore."""
+
     def __init__(self):
         self.core = AntiSurgeCore()
-        self._db_repository = None  # Ссылка на репозиторий БД
-        
+        self._db_repository = None
+
     def set_db_repository(self, repository):
-        """Устанавливает ссылку на репозиторий БД для загрузки конфигураций"""
         self._db_repository = repository
-        
-    def init_py(self):
+
+    def init_py(self) -> None:  # ✅ Добавляем аннотацию
         """Инициализация ядра"""
         self.core.initialize("mock_config.ini")
-        
-        # Загружаем конфигурацию из БД (если доступна)
         if self._db_repository:
             try:
                 config = self._db_repository.load_fuzzy_config(config_id=1, version="1.0.0")
@@ -295,12 +294,26 @@ class CoreBridge:
                     self.core.update_config(config)
             except Exception as e:
                 print(f"⚠️ Не удалось загрузить конфиг из БД: {e}", file=sys.stderr)
-        
-    def process_sensor_data(self, Q: float, P_in: float, P_out: float, T: float) -> ControlSignal:
-        """Основной метод для обработки данных (используется из Python GUI)"""
+
+    def process_sensor_data(self, Q: float, P_in: float, P_out: float, T: float) -> ControlSignal:  # ✅
+        """Основной метод для обработки данных"""
         data = SensorData(Q=Q, P_in=P_in, P_out=P_out, T=T)
         return self.core.process_sensor_data(data)
-    
-    def update_config(self, config: dict):
+
+    def update_config(self, config: Dict[str, Any]) -> None:  # ✅ Добавляем аннотацию
         """Обновление конфигурации на лету"""
         self.core.update_config(config)
+
+    # ===== ✅ НОВЫЕ МЕТОДЫ (делегирование к self.core) =====
+
+    def get_last_processed(self) -> ProcessedData:
+        """Возвращает последние обработанные данные"""
+        return self.core.get_last_processed()
+
+    def is_surge_detected(self) -> bool:
+        """Проверяет, обнаружен ли помпаж"""
+        return self.core.is_surge_detected()
+
+    def get_sensor_data(self) -> Optional[SensorData]:
+        """Получает данные с датчиков (заглушка для мока)"""
+        return None

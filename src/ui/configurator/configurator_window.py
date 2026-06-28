@@ -7,9 +7,11 @@ from ui.configurator.test_modal import TestModal
 class ConfiguratorWindow:
     """Главное окно конфигуратора нечёткой логики"""
     
-    def __init__(self, palette, configurator_controller):
+    def __init__(self, palette, configurator_controller, app_controller=None, event_log_window=None):
         self.palette = palette
         self.controller = configurator_controller
+        self._app_controller = app_controller
+        self._event_log_window = event_log_window 
         
         self.rules_editor = RulesEditor(palette, configurator_controller)
         self.test_modal = TestModal(palette, configurator_controller)
@@ -219,24 +221,31 @@ class ConfiguratorWindow:
         """Обработчик выбора компрессора"""
         comp_id = user_data
         
-        # Снимаем выделение со всех компрессоров
+        # Снимаем выделение со всех
         for comp in self.compressors:
             if dpg.does_item_exist(f"comp_{comp['compressor_id']}"):
                 dpg.set_value(f"comp_{comp['compressor_id']}", False)
         
         # Выделяем выбранный
         dpg.set_value(sender, True)
-        self.selected_compressor_id = comp_id
         
-        # Загружаем профиль компрессора
         if self.controller.select_compressor(comp_id):
-            self.selected_profile_id = self.controller.current_profile_id
+            self.selected_compressor_id = comp_id
             self.rules_editor.refresh()
             self._update_info_labels()
             self._highlight_current_profile()
+            
+            # ✅ Уведомляем AppController о смене компрессора
+            if self._app_controller:
+                self._app_controller.set_current_compressor(comp_id)
+            
+            # ✅ Уведомляем журнал событий о смене компрессора
+            if self._event_log_window:
+                self._event_log_window.set_compressor(comp_id)
+            
             print(f"✅ Выбран компрессор: {self.controller.current_compressor_name} "
                   f"(профиль: {self.controller.current_profile_name})", file=sys.stderr)
-    
+
     def _on_profile_selected(self, sender, app_data, user_data):
         """Обработчик выбора профиля из списка"""
         profile_id = user_data

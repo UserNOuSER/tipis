@@ -6,6 +6,7 @@ from dto.dto import SensorData, ProcessedData, ControlSignal
 import dearpygui.dearpygui as dpg  # ty:ignore[unresolved-import]
 from db.repository import Database
 from core.mock_engine import CoreBridge
+from core.base_engine import IEngine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -16,9 +17,11 @@ class AppController:
     
     def __init__(self):
         # Инициализация ядра через CoreBridge
-        self.bridge = CoreBridge()
+        self.bridge: IEngine = CoreBridge()
         self.db = Database()
         self.telemetry_panel = None
+        self.surge_plot = None
+        self.auth_controller = None  # ✅ Инициализируем сразу
         
         self.current_sensor_data = SensorData()
         self.current_command = None
@@ -27,13 +30,34 @@ class AppController:
         self.pressure_history = []
         self.time_history = []
         
-        # ✅ ВАЖНО: НЕ вызываем dpg здесь!
+        self.current_compressor_id = 1
+        self.current_user_id = 1
+        
+        # ✅ ВАЖНО: test_mode по умолчанию False
+        self.test_mode = False
+        self._simulation_running = False
+        
         # Загружаем конфигурацию из БД
         self._load_initial_config()
+    
+    def set_current_compressor(self, compressor_id: int):
+        """Устанавливает текущий компрессор для симуляции"""
+        self.current_compressor_id = compressor_id
+        logger.info(f"🔧 Текущий компрессор для симуляции: ID={compressor_id}")
+    
+    def set_current_user(self, user_id: int):
+        """Устанавливает текущего пользователя для записи событий"""
+        self.current_user_id = user_id
+        logger.info(f"👤 Текущий пользователь для записи: ID={user_id}")
 
     def set_telemetry_panel(self, panel):
         """Устанавливает ссылку на панель телеметрии"""
         self.telemetry_panel = panel
+        
+    def set_auth_controller(self, auth_controller):
+        """Устанавливает ссылку на контроллер авторизации"""
+        self.auth_controller = auth_controller
+        logger.info(f"✅ AuthController установлен: {auth_controller.get_username()}")
 
     def _load_initial_config(self):
         """Загружает правила нечеткой логики из БД при старте"""
@@ -47,12 +71,30 @@ class AppController:
         except Exception as e:
             logger.error(f"Ошибка загрузки конфигурации: {e}")
 
-    def initialize_system(self):
-        """Инициализация системы (БЕЗ обращения к DearPyGUI!)"""
+    def initialize_system(self, test_mode: bool = False):
+        """Инициализация системы"""
         try:
-            self.bridge.init_py()
-            logger.info("✅ AntiSurgeCore инициализирован")
-            # ✅ НЕ обращаемся к dpg здесь — UI ещё не создан!
+            self.test_mode = test_mode
+            
+            if test_mode:
+                # Тестовый режим — используем мок (CoreBridge)
+                self.bridge.init_py()
+                logger.info("✅ AntiSurgeCore инициализирован (ТЕСТОВЫЙ РЕЖИМ)")
+            else:
+                # Реальный режим — пытаемся загрузить .pyd
+                try:
+                    from core.anti_surge_core import AntiSurgeCore
+                    self.bridge = AntiSurgeCore()
+                    self.bridge.init_py()
+                    logger.info("✅ AntiSurgeCore инициализирован (C++ CORE)")
+                except ImportError as e:
+                    logger.error(f"❌ Не удалось загрузить C++ ядро: {e}")
+                    logger.error("💡 Запустите с флагом --test для тестового режима")
+                    raise RuntimeError(
+                        "C++ ядро не найдено. "
+                        "Скомпилируйте core/anti_surge_core.cpp в .pyd "
+                        "или запустите с флагом --test"
+                    )
         except Exception as e:
             logger.error(f"Ошибка инициализации: {e}")
             raise
@@ -76,31 +118,41 @@ class AppController:
             logger.error(f"Ошибка обновления UI: {e}")
 
     def process_data(self, sender=None, app_data=None):
-        """Главный цикл обработки данных"""
+        """
+        Главный цикл обработки данных.
+        В тестовом режиме НЕ ВЫЗЫВАЕТСЯ — данные генерирует симулятор.
+        В реальном режиме вызывается по таймеру для опроса C++ ядра.
+        """
         try:
-            # 1. Эмуляция получения данных с датчиков
-            q = 69.0 + random.uniform(-2, 2)
-            p_in = 5.0 + random.uniform(-0.1, 0.1)
-            p_out = 8.0 + random.uniform(-0.1, 0.1)
-            t = 20.0 + random.uniform(-0.5, 0.5)
+            # ✅ В тестовом режиме этот метод не работает
+            if self.test_mode:
+                return
             
-            self.current_sensor_data = SensorData(Q=q, P_in=p_in, P_out=p_out, T=t)
+            # === РЕАЛЬНЫЙ РЕЖИМ: получаем данные с C++ ядра ===
+            
+            # 1. Получаем данные с датчиков через C++ ядро
+            sensor_data = self.bridge.get_sensor_data()  # Метод C++ ядра  # ty:ignore[unresolved-attribute]
+            if not sensor_data:
+                return
+            
+            self.current_sensor_data = sensor_data
             
             # 2. Прогоняем через ядро
             self.current_command = self.bridge.process_sensor_data(
-                Q=q, P_in=p_in, P_out=p_out, T=t
+                Q=sensor_data.Q,
+                P_in=sensor_data.P_in,
+                P_out=sensor_data.P_out,
+                T=sensor_data.T
             )
             
-            # 3. Получаем обработанные данные для телеметрии
-            processed = self.bridge.core.get_last_processed()
+            # 3. Получаем обработанные данные
+            processed = self.bridge.get_last_processed()
             
-            # Обновляем рабочую точку на графике
-            if processed:
-                # Предполагаем, что есть ссылка на surge_plot
-                if hasattr(self, 'surge_plot') and self.surge_plot:
-                    self.surge_plot.update_operating_point(processed.Q_rel, processed.H_rel)
+            # 4. Обновляем рабочую точку на графике
+            if processed and self.surge_plot:
+                self.surge_plot.update_operating_point(processed.Q_rel, processed.H_rel)
             
-            # 4. Обновление телеметрии
+            # 5. Обновляем телеметрию
             if self.telemetry_panel and processed and self.current_command:
                 self.telemetry_panel.update(
                     self.current_sensor_data,
@@ -108,7 +160,7 @@ class AppController:
                     self.current_command
                 )
                 
-                # Обновляем общий статус в шапке
+                # Обновляем статус в шапке
                 status = self.current_command.status
                 if dpg.does_item_exist("status_text"):
                     if status == "SURGE":
@@ -120,13 +172,13 @@ class AppController:
                     else:
                         dpg.set_value("status_text", "✅ НОРМА")
                         dpg.configure_item("status_text", color=(16, 185, 129, 255))
-
-            # 5. Показываем модальное окно при помпаже
-            if self.bridge.core.is_surge_detected():
+            
+            # 6. Показываем модальное окно при помпаже
+            if self.bridge.is_surge_detected():
                 if dpg.does_item_exist("surge_alert"):
                     dpg.configure_item("surge_alert", show=True)
-
-            # 6. СОХРАНЕНИЕ В БД
+            
+            # 7. СОХРАНЕНИЕ В БД
             if processed and self.current_command:
                 event_data = {
                     "timestamp": datetime.utcnow(),
@@ -138,13 +190,14 @@ class AppController:
                     "margin": processed.margin,
                     "dQdt": processed.dQdt,
                     "valve_position": self.current_command.valveOpenPercent,
+                    "rule_fired": self.current_command.lastUsedRule,
                     "status": self.current_command.status == "SURGE",
-                    "compressor_id": 1,
-                    "user_id": 1
+                    "compressor_id": self.current_compressor_id,
+                    "user_id": self.current_user_id
                 }
                 self.db.save_event_log(event_data)
             
-            # 7. Обновление графиков
+            # 8. Обновление графиков
             self.update_charts()
             
         except Exception as e:
@@ -152,12 +205,19 @@ class AppController:
 
     def update_charts(self):
         """Обновление графиков"""
-        processed = self.bridge.core.get_last_processed()
-        if not processed:
-            return
+        # Получаем последнюю рабочую точку
+        if self.test_mode:
+            # В тестовом режиме берём из симулятора
+            q, h = self._sim_q, self._sim_h
+        else:
+            # В реальном режиме берём из C++ ядра
+            processed = self.bridge.get_last_processed()
+            if not processed:
+                return
+            q, h = processed.Q_rel, processed.H_rel
         
-        self.flow_history.append(processed.Q_rel)
-        self.pressure_history.append(processed.H_rel)
+        self.flow_history.append(q)
+        self.pressure_history.append(h)
         self.time_history.append(datetime.now().strftime("%H:%M:%S"))
         
         max_points = 50
@@ -242,6 +302,14 @@ class AppController:
             return self.db.get_all_users()
         except Exception as e:
             logger.error(f"Ошибка получения пользователей: {e}")
+            return []
+
+    def get_all_compressors(self):
+        """Получает список всех компрессоров"""
+        try:
+            return self.db.get_all_compressors()
+        except Exception as e:
+            logger.error(f"Ошибка получения компрессоров: {e}")
             return []
 
     def create_user(self, username: str, password: str, role: str) -> bool:
@@ -348,7 +416,7 @@ class AppController:
         try:
             import random
             
-            # ✅ ЛОГИРОВАНИЕ: каждые 50 тиков
+            # Логирование каждые 50 тиков
             if self._tick_count % 50 == 0:
                 logger.info(f"🔄 Тик #{self._tick_count}: mode={self._sim_mode}, q={self._sim_q:.1f}, h={self._sim_h:.1f}")
             
@@ -376,6 +444,7 @@ class AppController:
             # Обновляем телеметрию
             if self.telemetry_panel is not None:
                 from dto.dto import SensorData, ProcessedData, ControlSignal
+                from datetime import datetime
                 
                 sensor = SensorData(
                     Q=self._sim_q,
@@ -388,14 +457,23 @@ class AppController:
                     margin = random.uniform(0, 5)
                     status = "SURGE"
                     valve = random.uniform(70, 100)
+                    surge_status = "АКТИВНА (помпаж)"
+                    last_rule = "Правило #3: Экстренное открытие клапана"
                 elif self._sim_mode == "warning":
                     margin = random.uniform(5, 15)
                     status = "WARNING"
                     valve = random.uniform(30, 70)
+                    surge_status = "Предупреждение"
+                    last_rule = "Правило #2: Плавное увеличение расхода"
                 else:
                     margin = random.uniform(20, 50)
                     status = "NORMAL"
                     valve = random.uniform(0, 30)
+                    surge_status = "Норма"
+                    last_rule = "Правило #1: Поддержание режима"
+                
+                ch4 = 92 + random.uniform(-0.5, 0.5)
+                gas_comp = f"Природный газ (CH₄ {ch4:.0f}%)"
                 
                 processed = ProcessedData(
                     Q_rel=self._sim_q,
@@ -404,42 +482,156 @@ class AppController:
                     dQdt=random.uniform(-5, 5)
                 )
                 
-                # ✅ ДОБАВЛЕНО compressorName
                 command = ControlSignal(
                     valveOpenPercent=valve,
-                    status=status,
-                    lastUsedRule="SIMULATION",
-                    reactionTime=0.05,
-                    compressorName="CC-45X"  # ✅ Имя компрессора
+                    status=surge_status,
+                    lastUsedRule=last_rule,
+                    reactionTime=0.05 + random.uniform(-0.01, 0.01),
+                    compressorName="CC-45X",
+                    gasComposition=gas_comp
                 )
                 
                 self.telemetry_panel.update(sensor, processed, command)
                 
-                if status == "SURGE":
-                    surge_status = "АПЗ: АКТИВНА (помпаж)"
-                    last_rule = "Правило #3: Экстренное открытие клапана"
-                    gas_comp = "Природный газ (CH₄ 92%)"
-                elif status == "WARNING":
-                    surge_status = "АПЗ: Предупреждение"
-                    last_rule = "Правило #2: Плавное увеличение расхода"
-                    gas_comp = "Природный газ (CH₄ 92%)"
-                else:
-                    surge_status = "АПЗ: Норма"
-                    last_rule = "Правило #1: Поддержание режима"
-                    gas_comp = "Природный газ (CH₄ 92%)"
+                # Сохраняем событие в БД каждые 10 тиков
+                if self._tick_count % 10 == 0:
+                    event_data = {
+                        "timestamp": datetime.utcnow(),
+                        "Q": self._sim_q,
+                        "H": self._sim_h,
+                        "P_in": sensor.P_in,
+                        "P_out": sensor.P_out,
+                        "T_in": sensor.T,
+                        "margin": margin,
+                        "dQdt": processed.dQdt,
+                        "valve_position": valve,
+                        "rule_fired": last_rule,
+                        "status": status == "SURGE",
+                        "compressor_id": self.current_compressor_id,  #  Динамически
+                        "user_id": self.current_user_id               #  Динамически
+                    }
+                    self.db.save_event_log(event_data)
                 
-                command = ControlSignal(
-                    valveOpenPercent=valve,
-                    status=status,
-                    lastUsedRule=last_rule,
-                    reactionTime=0.05,
-                    compressorName="CC-45X",
-                    gasComposition=gas_comp,
-                    surgeStatus=surge_status,
-                    marginPercent=margin
-                )
+                # Обновляем статус в шапке
+                if dpg.does_item_exist("status_text"):
+                    if status == "SURGE":
+                        dpg.set_value("status_text", "⚠️ АКТИВНА ЗАЩИТА (ПОМПАЖ)")
+                        dpg.configure_item("status_text", color=(239, 68, 68, 255))
+                    elif status == "WARNING":
+                        dpg.set_value("status_text", "⚠️ ПРИБЛИЖЕНИЕ К ПОМПАЖУ")
+                        dpg.configure_item("status_text", color=(245, 158, 11, 255))
+                    else:
+                        dpg.set_value("status_text", "✅ НОРМА")
+                        dpg.configure_item("status_text", color=(16, 185, 129, 255))
             
             self._tick_count += 1
         
         except Exception as e:
             logger.error(f"Ошибка тика симуляции: {e}", exc_info=True)
+
+    # ==========================================
+    # Экспорт отчётов
+    # ==========================================
+    def export_report(self, compressor_id: int, start_date=None, end_date=None,
+                     status_filters=None, include_rules: bool = True) -> tuple[bool, str]:
+        """
+        Экспортирует отчёт в JSON.
+        Возвращает (успех, сообщение).
+        """
+        try:
+            import json
+            
+            # 1. Получаем данные компрессора
+            compressor = self.db.get_compressor(compressor_id)
+            if not compressor:
+                return False, "Компрессор не найден"
+            
+            # 2. Загружаем события
+            events = self.db.get_event_log(
+                compressor_id=compressor_id,
+                start_date=start_date,
+                end_date=end_date,
+                limit=10000
+            )
+            
+            # 3. Фильтруем по статусам
+            filtered_events = []
+            for event in events:
+                status = "surge" if event.get("status") else ("warning" if event.get("margin", 100) < 10 else "normal")
+                if status in status_filters:  # ty:ignore[unsupported-operator]
+                    # Преобразуем datetime в строку для JSON
+                    event_copy = event.copy()
+                    if isinstance(event_copy.get("timestamp"), datetime):
+                        event_copy["timestamp"] = event_copy["timestamp"].isoformat()
+                    event_copy["status_category"] = status
+                    filtered_events.append(event_copy)
+            
+            # 4. Считаем статистику
+            stats = {
+                "total_events": len(filtered_events),
+                "surge_events": sum(1 for e in filtered_events if e.get("status_category") == "surge"),
+                "warning_events": sum(1 for e in filtered_events if e.get("status_category") == "warning"),
+                "normal_events": sum(1 for e in filtered_events if e.get("status_category") == "normal")
+            }
+            
+            # 5. Загружаем конфигурацию (если нужно)
+            configuration = None
+            if include_rules:
+                profile_id = compressor.get("profile_id")
+                if profile_id:
+                    config = self.db.load_profile_config(profile_id)
+                    if config:
+                        configuration = {
+                            "profile_name": config.get("name"),
+                            "profile_description": config.get("description"),
+                            "version": config.get("version"),
+                            "input_vars": config.get("input_vars"),
+                            "output_vars": config.get("output_vars"),
+                            "rules": config.get("rules", [])
+                        }
+            
+            # ✅ 6. Безопасно получаем имя пользователя
+            generated_by = "system"
+            if hasattr(self, 'auth_controller') and self.auth_controller is not None:
+                try:
+                    generated_by = self.auth_controller.get_username()
+                except Exception as e:
+                    logger.warning(f"⚠️ Не удалось получить имя пользователя: {e}")
+            
+            # 7. Формируем итоговый отчёт
+            report = {
+                "metadata": {
+                    "report_date": datetime.now().isoformat(),
+                    "generated_by": generated_by,  # ✅ Используем безопасную переменную
+                    "version": "1.0.0",
+                    "application": "Система защиты от помпажа"
+                },
+                "filters": {
+                    "compressor": {
+                        "id": compressor_id,
+                        "name": compressor.get("name"),
+                        "model": compressor.get("model"),
+                        "profile": compressor.get("profile_name")
+                    },
+                    "period": {
+                        "start": start_date.isoformat() if start_date else None,
+                        "end": end_date.isoformat() if end_date else None
+                    },
+                    "status_filters": status_filters
+                },
+                "statistics": stats,
+                "events": filtered_events,
+                "configuration": configuration
+            }
+            
+            # 8. Сохраняем в файл
+            filename = f"report_{compressor.get('name')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(report, f, indent=2, ensure_ascii=False)
+            
+            logger.info(f"✅ Отчёт экспортирован: {filename}")
+            return True, f"Отчёт сохранён: {filename} ({stats['total_events']} событий)"
+        
+        except Exception as e:
+            logger.error(f"❌ Ошибка экспорта отчёта: {e}", exc_info=True)
+            return False, f"Ошибка: {e}"

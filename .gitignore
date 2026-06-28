@@ -44,3 +44,4 @@ testing_dpg
 
 # === Файлы, образующиеся при работе программы ===
 export*.json
+event_log*.csv

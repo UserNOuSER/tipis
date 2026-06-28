@@ -3,6 +3,7 @@ import dearpygui.dearpygui as dpg  # ty:ignore[unresolved-import]
 from datetime import datetime, timedelta
 import csv
 
+
 class EventLogWindow:
     """Окно журнала событий системы"""
     
@@ -11,15 +12,12 @@ class EventLogWindow:
         self.controller = controller
         self.events = []
         self.filtered_events = []
+        self.current_compressor_id = 1  # ✅ По умолчанию CC-45X
         
-        # Фиксированные размеры окна
         self.window_height = 750
         self.window_width = 1200
-        
-        # Фиксированная высота таблицы (рассчитана вручную)
-        # Окно 750px - заголовок(30) - фильтры(50) - отступы(20) - кнопки(50) - отступы(20) = 580px
         self.table_height = 580
-        
+    
     def create(self):
         """Создает окно журнала событий"""
         with dpg.window(
@@ -28,11 +26,9 @@ class EventLogWindow:
             show=False, 
             width=self.window_width, 
             height=self.window_height,
-            no_scrollbar=True,      # Скролл только у таблицы
+            no_scrollbar=True,
             no_collapse=True
-            # ❌ resize_callback УБРАН — такого параметра нет в DearPyGUI
         ):
-            # 1️⃣ ВЕРХ: Заголовок + фильтры
             dpg.add_text("ЖУРНАЛ СОБЫТИЙ СИСТЕМЫ АПЗ", color=self.palette.primary + (255,))
             dpg.add_separator()
 
@@ -48,8 +44,18 @@ class EventLogWindow:
                 
                 dpg.add_spacer(width=20)
                 dpg.add_text("Компрессор:", color=self.palette.text_primary + (255,))
-                dpg.add_combo(["CC-45X", "SK-600B"], default_value="CC-45X", 
-                             tag="event_compressor", width=100)
+                
+                # ✅ Загружаем компрессоры из БД
+                compressors = self.controller.get_all_compressors()
+                self.compressor_map = {c["name"]: c["compressor_id"] for c in compressors}
+                compressor_names = list(self.compressor_map.keys())
+                
+                dpg.add_combo(
+                    compressor_names, 
+                    default_value=compressor_names[0] if compressor_names else "CC-45X", 
+                    tag="event_compressor", 
+                    width=150
+                )
                 
                 dpg.add_spacer(width=20)
                 dpg.add_button(label="Применить фильтры", callback=self._apply_filters, width=150)
@@ -57,9 +63,8 @@ class EventLogWindow:
 
             dpg.add_spacer(height=8)
 
-            # 2️⃣ СЕРЕДИНА: Таблица (ФИКСИРОВАННАЯ высота, скроллится)
             with dpg.child_window(
-                height=self.table_height,    # ✅ ЯВНАЯ фиксированная высота
+                height=self.table_height,
                 tag="event_table_container", 
                 border=True
             ):
@@ -67,7 +72,7 @@ class EventLogWindow:
                     header_row=True, 
                     borders_innerH=True, borders_outerH=True,
                     borders_innerV=True, borders_outerV=True, 
-                    height=-1,               # Таблица заполняет child_window
+                    height=-1,
                     tag="event_table"
                 ):
                     dpg.add_table_column(label="Время", width_fixed=True, init_width_or_weight=160)
@@ -80,7 +85,6 @@ class EventLogWindow:
 
             dpg.add_spacer(height=8)
 
-            # 3️⃣ НИЗ: Кнопки (всегда видны, не выталкиваются)
             with dpg.group(horizontal=True):
                 dpg.add_button(label="Скачать CSV", callback=self._export_csv, width=150)
                 dpg.add_button(label="Обновить", callback=self._load_events, width=120)
@@ -92,13 +96,33 @@ class EventLogWindow:
                 dpg.add_text("Всего событий: 0", tag="event_count", 
                             color=self.palette.text_primary + (255,))
 
-        # Загружаем события при создании
+        self._load_events()
+    
+    def set_compressor(self, compressor_id: int):
+        """✅ Устанавливает компрессор для фильтрации событий"""
+        self.current_compressor_id = compressor_id
+        
+        # Обновляем combo box
+        compressor_name = next((name for name, cid in self.compressor_map.items() if cid == compressor_id), None)
+        if compressor_name and dpg.does_item_exist("event_compressor"):
+            dpg.set_value("event_compressor", compressor_name)
+        
+        # Перезагружаем события
         self._load_events()
     
     def _load_events(self, sender=None, app_data=None):
-        """Загружает события из БД"""
+        """Загружает события из БД с учётом выбранного компрессора"""
         try:
-            self.events = self.controller.get_event_log()
+            # ✅ Получаем выбранный компрессор из combo box
+            selected_name = dpg.get_value("event_compressor") if dpg.does_item_exist("event_compressor") else "CC-45X"
+            compressor_id = self.compressor_map.get(selected_name, 1)
+            self.current_compressor_id = compressor_id
+            
+            # ✅ Загружаем события для конкретного компрессора
+            self.events = self.controller.get_event_log(
+                compressor_id=compressor_id,
+                limit=500
+            )
             self.filtered_events = self.events
             self._render_table()
         except Exception as e:
@@ -118,19 +142,18 @@ class EventLogWindow:
             if end_date:
                 end_date = end_date.replace(hour=23, minute=59, second=59)
             
-            self.filtered_events = []
-            for event in self.events:
-                event_time = event["timestamp"]
-                if isinstance(event_time, str):
-                    event_time = datetime.fromisoformat(event_time)
-                
-                if start_date and event_time < start_date:
-                    continue
-                if end_date and event_time > end_date:
-                    continue
-                
-                self.filtered_events.append(event)
+            # ✅ Также учитываем компрессор
+            selected_name = dpg.get_value("event_compressor")
+            compressor_id = self.compressor_map.get(selected_name, 1)
             
+            # Перезагружаем события для выбранного компрессора
+            self.events = self.controller.get_event_log(
+                compressor_id=compressor_id,
+                start_date=start_date,
+                end_date=end_date,
+                limit=500
+            )
+            self.filtered_events = self.events
             self._render_table()
         except Exception as e:
             print(f"Ошибка применения фильтров: {e}", file=sys.stderr)
@@ -139,8 +162,7 @@ class EventLogWindow:
         """Сбрасывает фильтры"""
         dpg.set_value("event_start_date", (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d"))
         dpg.set_value("event_end_date", datetime.now().strftime("%Y-%m-%d"))
-        self.filtered_events = self.events
-        self._render_table()
+        self._load_events()
     
     def _render_table(self):
         """Отрисовывает таблицу событий"""
@@ -167,11 +189,11 @@ class EventLogWindow:
             
             with dpg.table_row(parent="event_table"):
                 dpg.add_text(timestamp_str)
-                dpg.add_text(f"{event['q']:.2f}" if event['q'] else "0.00")
-                dpg.add_text(f"{event['h']:.2f}" if event['h'] else "0.00")
-                dpg.add_text(f"{event['margin']:.1f}" if event['margin'] else "0.0")
-                dpg.add_text(f"{event['dqdt']:.2f}" if event['dqdt'] else "0.00")
-                dpg.add_text(f"{event['valve_position']:.1f}%" if event['valve_position'] else "0.0%")
+                dpg.add_text(f"{event['q']:.2f}" if event.get('q') else "0.00")
+                dpg.add_text(f"{event['h']:.2f}" if event.get('h') else "0.00")
+                dpg.add_text(f"{event['margin']:.1f}" if event.get('margin') else "0.0")
+                dpg.add_text(f"{event['dqdt']:.2f}" if event.get('dqdt') else "0.00")
+                dpg.add_text(f"{event['valve_position']:.1f}%" if event.get('valve_position') else "0.0%")
                 dpg.add_text(status, color=status_color)
         
         if dpg.does_item_exist("event_count"):
@@ -187,7 +209,7 @@ class EventLogWindow:
                 writer.writerow(["Время", "Q", "H", "Маржа", "dQ/dt", "Клапан", "Статус"])
                 
                 for event in self.filtered_events:
-                    status = "SURGE" if event["status"] else ("WARNING" if event["margin"] < 10 else "NORMAL")
+                    status = "SURGE" if event["status"] else ("WARNING" if event.get("margin", 0) < 10 else "NORMAL")
                     timestamp = event["timestamp"]
                     if isinstance(timestamp, datetime):
                         timestamp_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
@@ -196,11 +218,11 @@ class EventLogWindow:
                     
                     writer.writerow([
                         timestamp_str,
-                        f"{event['q']:.2f}" if event['q'] else "0.00",
-                        f"{event['h']:.2f}" if event['h'] else "0.00",
-                        f"{event['margin']:.1f}" if event['margin'] else "0.0",
-                        f"{event['dqdt']:.2f}" if event['dqdt'] else "0.00",
-                        f"{event['valve_position']:.1f}" if event['valve_position'] else "0.0",
+                        f"{event.get('q', 0):.2f}",
+                        f"{event.get('h', 0):.2f}",
+                        f"{event.get('margin', 0):.1f}",
+                        f"{event.get('dqdt', 0):.2f}",
+                        f"{event.get('valve_position', 0):.1f}",
                         status
                     ])
             

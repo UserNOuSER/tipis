@@ -252,17 +252,20 @@ class UserManagementWindow:
                 with dpg.group(horizontal=True):
                     dpg.add_button(
                         label="[Ред]",
-                        callback=lambda s, a, u=user: self._open_edit_modal(u),
+                        callback=self._on_edit_user_clicked,  # ✅ Отдельный метод-обёртка
+                        user_data=user, 
                         width=50, height=25
                     )
                     dpg.add_button(
                         label="[Ключ]",
-                        callback=lambda s, a, u=user: self._open_reset_modal(u),
+                        callback=self._on_reset_password_clicked,  # ✅ Отдельный метод-обёртка
+                        user_data=user,
                         width=60, height=25
                     )
                     dpg.add_button(
                         label="[Удал]",
-                        callback=lambda s, a, u=user: self._open_delete_modal(u),
+                        callback=self._on_delete_user_clicked,  # ✅ Отдельный метод-обёртка
+                        user_data=user,
                         width=60, height=25
                     )
         
@@ -417,6 +420,28 @@ class UserManagementWindow:
                 print("Ошибка удаления пользователя", file=sys.stderr)
         except Exception as e:
             print(f"Ошибка: {e}", file=sys.stderr)
+
+    def _on_edit_user_clicked(self, sender, app_data, user_data):
+        user = user_data
+        if user is None:
+            print("Ошибка: user is None в _on_edit_user_clicked", file=sys.stderr)
+            return
+        self._open_edit_modal(user)
+
+    def _on_reset_password_clicked(self, sender, app_data, user_data):
+        """Обработчик клика по кнопке 🔑 — извлекает пользователя из user_data"""
+        user = user_data
+        if user is None:
+            print("Ошибка: user is None в _on_reset_password_clicked", file=sys.stderr)
+            return
+        self._open_reset_modal(user)
+    
+    def _on_delete_user_clicked(self, sender, app_data, user_data):
+        user = user_data
+        if user is None:
+            return
+        self._delete_user(user)
+    
     
     def show(self):
         """Показывает окно управления пользователями"""
