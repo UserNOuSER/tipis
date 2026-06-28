@@ -1,7 +1,8 @@
 #pragma once
 #include <string>
 #include <memory>
-#include "../dto/Contracts.h"  // ВАЖНО: правильный путь к Contracts.h
+#include <vector>
+#include "../dto/Contracts.h"
 
 class AntiSurgeCore {
 public:
@@ -9,10 +10,15 @@ public:
     ~AntiSurgeCore();
 
     bool initialize(const std::string& config_path);
-    ControlCommand processSensorData(const SensorData& data); 
+    ControlCommand processSensorData(const SensorData& data);
     ControlCommand getControlCommand() const;
     bool isSurgeDetected() const;
     std::string getSystemStatus() const;
+
+    // РќРѕРІС‹Рµ РјРµС‚РѕРґС‹
+    double getSurgeMargin() const;
+    std::vector<double> getRecentFlowRates() const;
+    void setSurgeThreshold(double threshold);
 
 private:
     struct Impl;
