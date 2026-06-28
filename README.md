@@ -9,7 +9,7 @@
 |-----------|------------|
 | Ядро | C++17, CMake, pybind11 |
 | Интерфейс | Python 3.10+, DearPyGUI, SQLAlchemy |
-| БД | PostgreSQL |
+| БД | SQLite |
 | Управление версиями | Git, Git Flow, Conventional Commits |
 
 ## 🚀 Быстрый старт
@@ -30,3 +30,11 @@ cmake --build . --config Release
 # 4. Запуск
 cd ../src
 python main.py
+```
+##  Тест мощности
+```bash
+cd ../tests
+
+python /ui/test_gui_performance.py
+
+python /core/test_performance.py 

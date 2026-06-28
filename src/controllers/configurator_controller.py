@@ -1,6 +1,5 @@
 import logging
-from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict
 from simpful import FuzzySystem, AutoTriangle  # ty:ignore[unresolved-import]
 from db.repository import Database
 
@@ -56,7 +55,7 @@ class ConfiguratorController:
         self.current_profile_id = comp_data["profile_id"]
         self.current_profile_name = comp_data.get("profile_name", f"Профиль #{self.current_profile_id}")
         
-        logger.info(f"🔧 Выбран компрессор: {self.current_compressor_name} (профиль: {self.current_profile_name})")
+        logger.info(f" Выбран компрессор: {self.current_compressor_name} (профиль: {self.current_profile_name})")
         
         # 2. Загружаем профиль
         return self._load_profile(self.current_profile_id)
@@ -107,7 +106,7 @@ class ConfiguratorController:
             input_vars = self._normalize_vars(self._current_config.get("input_vars", {}))
             output_vars = self._normalize_vars(self._current_config.get("output_vars", {}))
             
-            logger.info(f"📊 Переменные: input={list(input_vars.keys())}, output={list(output_vars.keys())}")
+            logger.info(f" Переменные: input={list(input_vars.keys())}, output={list(output_vars.keys())}")
             
             # Создаём лингвистические переменные
             for var_name, var_info in {**input_vars, **output_vars}.items():
@@ -115,7 +114,7 @@ class ConfiguratorController:
                 terms = var_info.get("terms", [])
                 
                 if not terms:
-                    logger.warning(f"⚠️ У переменной {var_name} нет термов — пропускаем")
+                    logger.warning(f"Variable {var_name} has no terms - skipping")
                     continue
                 
                 lv = AutoTriangle(
@@ -143,11 +142,11 @@ class ConfiguratorController:
                         self.test_fs.add_rules([rule_str])
                         rules_added += 1
                     except Exception as e:
-                        logger.warning(f"⚠️ Пропущено правило: {rule_str} (ошибка: {e})")
+                        logger.warning(f"Rule skipped: {rule_str} (error: {e})")
             
-            logger.info(f"✅ FuzzySystem перестроен: {rules_added} из {len(self._current_rules)} правил")
+            logger.info(f" FuzzySystem перестроен: {rules_added} из {len(self._current_rules)} правил")
         except Exception as e:
-            logger.error(f"❌ Ошибка перестройки FuzzySystem: {e}")
+            logger.error(f" Ошибка перестройки FuzzySystem: {e}")
             import traceback
             traceback.print_exc()
             self.test_fs = None
@@ -217,7 +216,7 @@ class ConfiguratorController:
         normalized = re.sub(pattern, replace_match, text)
         
         if normalized == text:
-            logger.warning(f"⚠️ Не удалось преобразовать: {text}")
+            logger.warning(f"Could not convert: {text}")
             return ""
         
         return normalized
@@ -290,7 +289,7 @@ class ConfiguratorController:
             return []
         
         try:
-            # ✅ Загружаем события именно этого компрессора
+            #  Загружаем события именно этого компрессора
             events = self.db.get_event_log(
                 compressor_id=self.current_compressor_id,
                 limit=events_count
@@ -331,7 +330,7 @@ class ConfiguratorController:
                     logger.warning(f"Ошибка обработки события: {e}")
                     continue
             
-            logger.info(f"✅ Тест для {self.current_compressor_name}: {len(results)} событий")
+            logger.info(f" Тест для {self.current_compressor_name}: {len(results)} событий")
             return results
         except Exception as e:
             logger.error(f"Ошибка тестирования: {e}")

@@ -8,7 +8,7 @@ from core.base_engine import IEngine
 from dto.dto import ProcessedData, SensorData
 
 
-class AntiSurgeCore(IEngine):  # ✅ Наследуем от IEngine
+class AntiSurgeCore(IEngine):  #  Наследуем от IEngine
     """Реальное C++ ядро (заглушка)"""
 
     def __init__(self):

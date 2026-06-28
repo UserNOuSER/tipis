@@ -4,7 +4,6 @@
 """
 from sqlalchemy import create_engine, text, inspect  # ty:ignore[unresolved-import]
 from db.init_db import Base
-from db.models import Compressor, FuzzyConfig
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,48 +19,48 @@ def run_migration(db_url: str = "sqlite:///anti_surge_prototype.db"):
     with engine.connect() as conn:
         # 1. Создаём таблицу Compressors, если её нет
         if 'Compressors' not in existing_tables:
-            logger.info("🏗️ Создание таблицы Compressors...")
+            logger.info("Создание таблицы Compressors...")
             Base.metadata.tables['Compressors'].create(engine)
-            logger.info("✅ Таблица Compressors создана")
+            logger.info("Таблица Compressors создана")
         else:
-            logger.info("ℹ️ Таблица Compressors уже существует")
+            logger.info("Таблица Compressors уже существует")
         
         # 2. Добавляем колонки в FuzzyConfigs, если их нет
         if 'FuzzyConfigs' in existing_tables:
             columns = [col['name'] for col in inspector.get_columns('FuzzyConfigs')]
             
             if 'Name' not in columns:
-                logger.info("🏗️ Добавление колонки Name в FuzzyConfigs...")
+                logger.info("Добавление колонки Name в FuzzyConfigs...")
                 conn.execute(text("ALTER TABLE FuzzyConfigs ADD COLUMN Name VARCHAR(100)"))
                 conn.commit()
-                logger.info("✅ Колонка Name добавлена")
+                logger.info("Колонка Name добавлена")
             
             if 'Description' not in columns:
-                logger.info("🏗️ Добавление колонки Description в FuzzyConfigs...")
+                logger.info("Добавление колонки Description в FuzzyConfigs...")
                 conn.execute(text("ALTER TABLE FuzzyConfigs ADD COLUMN Description VARCHAR(500)"))
                 conn.commit()
-                logger.info("✅ Колонка Description добавлена")
+                logger.info("Колонка Description добавлена")
         
         # 3.  Добавляем колонки в EventLog
         if 'EventLog' in existing_tables:
             event_columns = [col['name'] for col in inspector.get_columns('EventLog')]
             
             if 'ReactionTime' not in event_columns:
-                logger.info("🏗️ Добавление колонки ReactionTime в EventLog...")
+                logger.info("Добавление колонки ReactionTime в EventLog...")
                 conn.execute(text("ALTER TABLE EventLog ADD COLUMN ReactionTime REAL DEFAULT 0.0"))
                 conn.commit()
-                logger.info("✅ Колонка ReactionTime добавлена")
+                logger.info("Колонка ReactionTime добавлена")
             
             if 'GasComposition' not in event_columns:
-                logger.info("🏗️ Добавление колонки GasComposition в EventLog...")
+                logger.info("Добавление колонки GasComposition в EventLog...")
                 conn.execute(text("ALTER TABLE EventLog ADD COLUMN GasComposition TEXT DEFAULT ''"))
                 conn.commit()
-                logger.info("✅ Колонка GasComposition добавлена")
+                logger.info("Колонка GasComposition добавлена")
         
         # 4. Заполняем тестовыми данными
         _seed_test_data(conn, inspector)
     
-    logger.info("✅ Миграция завершена")
+    logger.info("Миграция завершена")
 
 
 def _seed_test_data(conn, inspector):
@@ -69,10 +68,10 @@ def _seed_test_data(conn, inspector):
     # Проверяем, есть ли уже компрессоры
     result = conn.execute(text("SELECT COUNT(*) FROM Compressors")).scalar()
     if result > 0:
-        logger.info("ℹ️ Тестовые данные уже есть, пропускаем")
+        logger.info("Тестовые данные уже есть, пропускаем")
         return
     
-    logger.info("🌱 Заполнение тестовыми данными...")
+    logger.info("Заполнение тестовыми данными...")
     
     # 1. Обновляем существующий конфиг (ID=1)
     conn.execute(text("""
@@ -127,7 +126,7 @@ def _seed_test_data(conn, inspector):
     """))
     
     conn.commit()
-    logger.info("✅ Тестовые данные заполнены: 3 профиля, 6 компрессоров")
+    logger.info(" Тестовые данные заполнены: 3 профиля, 6 компрессоров")
 
 
 if __name__ == "__main__":

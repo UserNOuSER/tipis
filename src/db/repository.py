@@ -33,7 +33,7 @@ class Database:
             cls._instance = super(Database, cls).__new__(cls)
             cls._engine = create_engine(db_url, echo=False)
             cls._session_factory = sessionmaker(bind=cls._engine)
-            logger.info(f"✅ Database Singleton initialized: {db_url}")
+            logger.info(f"Database Singleton initialized: {db_url}")
         return cls._instance
 
     # ==========================================
@@ -51,7 +51,7 @@ class Database:
             session.commit()
         except SQLAlchemyError as e:
             session.rollback()
-            logger.error(f"❌ Ошибка БД: {e}")
+            logger.error(f"Database error: {e}")
             raise
         finally:
             session.close()
@@ -67,7 +67,7 @@ class Database:
             try:
                 return json.loads(value)
             except (json.JSONDecodeError, TypeError):
-                logger.warning(f"⚠️ Не удалось распарсить JSON: {value[:50]}...")
+                logger.warning(f"Could not parse JSON: {value[:50]}...")
                 return {}
         return {}
 
@@ -120,7 +120,7 @@ class Database:
             f"Ошибка загрузки конфига {config_id} v{version}"
         )
         if result and result.get("rules"):
-            logger.info(f"📥 Загружено {len(result['rules'])} правил для конфига {config_id} v{version}")
+            logger.info(f" Загружено {len(result['rules'])} правил для конфига {config_id} v{version}")
         return result
 
     def _load_rules_for_config(self, session: Session, config_id: int, version: str) -> List[Dict]:
@@ -205,7 +205,7 @@ class Database:
                 return [self._event_to_dict(e) for e in events]
 
         result = self._execute_safely(_load, "Ошибка загрузки журнала", [])
-        logger.info(f"📋 Загружено {len(result)} событий из журнала")
+        logger.info(f" Загружено {len(result)} событий из журнала")
         return result
 
     def get_event_details(self, event_id: int) -> Optional[Dict[str, Any]]:
@@ -271,7 +271,7 @@ class Database:
                 ]
 
         result = self._execute_safely(_load, "Ошибка загрузки ГДХ", [])
-        logger.info(f"📈 Загружено {len(result)} точек ГДХ для компрессора {compressor_id}")
+        logger.info(f" Загружено {len(result)} точек ГДХ для компрессора {compressor_id}")
         return result
 
     def get_surge_boundary(self, compressor_id: int) -> List[Dict[str, float]]:
@@ -296,7 +296,7 @@ class Database:
                 return [self._user_to_dict(u) for u in users]
 
         result = self._execute_safely(_load, "Ошибка загрузки пользователей", [])
-        logger.info(f"👥 Загружено {len(result)} пользователей")
+        logger.info(f" Загружено {len(result)} пользователей")
         return result
 
     def create_user(self, username: str, password: str, role: str = "OPERATOR") -> bool:
@@ -310,7 +310,7 @@ class Database:
                     IsActive=True
                 )
                 session.add(new_user)
-            logger.info(f"✅ Создан пользователь: {username} (роль: {role})")
+            logger.info(f"User created: {username} (role: {role})")
             return True
 
         return self._execute_safely(_create, "Ошибка создания пользователя", False)
@@ -336,7 +336,7 @@ class Database:
                     user.Role = role
                 if is_active is not None:
                     user.IsActive = is_active
-            logger.info(f"✅ Обновлён пользователь: {user_id}")
+            logger.info(f"User updated: {user_id}")
             return True
 
         return self._execute_safely(_update, "Ошибка обновления пользователя", False)
@@ -349,7 +349,7 @@ class Database:
                 if not user:
                     return False
                 session.delete(user)
-            logger.info(f"🗑️ Удалён пользователь: {user_id}")
+            logger.info(f"User deleted: {user_id}")
             return True
 
         return self._execute_safely(_delete, "Ошибка удаления пользователя", False)
@@ -362,7 +362,7 @@ class Database:
                 if not user:
                     return False
                 user.PasswordHash = self._hash_password(new_password)
-            logger.info(f"🔑 Сброшен пароль для пользователя: {user_id}")
+            logger.info(f"Password reset for user: {user_id}")
             return True
 
         return self._execute_safely(_reset, "Ошибка сброса пароля", False)
@@ -384,9 +384,9 @@ class Database:
 
         result = self._execute_safely(_auth, "Ошибка аутентификации")
         if result:
-            logger.info(f"✅ Пользователь {username} вошёл в систему")
+            logger.info(f"User {username} logged in")
         else:
-            logger.warning(f"⚠️ Неудачная попытка входа: {username}")
+            logger.warning(f"Failed login attempt: {username}")
         return result
 
     def get_user_count(self) -> int:
@@ -429,7 +429,7 @@ class Database:
                 ]
 
         result = self._execute_safely(_load, "Ошибка загрузки компрессоров", [])
-        logger.info(f"🔧 Загружено {len(result)} компрессоров")
+        logger.info(f"Loaded {len(result)} compressors")
         return result
 
     def get_compressor(self, compressor_id: int) -> Optional[Dict[str, Any]]:
@@ -461,7 +461,7 @@ class Database:
                 if not comp:
                     return False
                 comp.ProfileID = profile_id
-            logger.info(f"✅ Компрессору {compressor_id} назначен профиль {profile_id}")
+            logger.info(f"Profile {profile_id} assigned to compressor {compressor_id}")
             return True
 
         return self._execute_safely(_assign, "Ошибка назначения профиля", False)
@@ -487,7 +487,7 @@ class Database:
                 ]
 
         result = self._execute_safely(_load, "Ошибка загрузки профилей", [])
-        logger.info(f"📋 Загружено {len(result)} профилей")
+        logger.info(f" Загружено {len(result)} профилей")
         return result
 
     def load_profile_config(self, profile_id: int) -> Optional[Dict[str, Any]]:
@@ -544,7 +544,7 @@ class Database:
 
         result = self._execute_safely(_create, "Ошибка создания профиля")
         if result:
-            logger.info(f"✅ Создан профиль '{name}' (ID={result})")
+            logger.info(f"Profile '{name}' created (ID={result})")
         return result
 
     def update_profile(
@@ -585,7 +585,7 @@ class Database:
 
         result = self._execute_safely(_update, f"Ошибка обновления профиля {profile_id}", False)
         if result:
-            logger.info(f"✅ Профиль {profile_id} обновлён")
+            logger.info(f"Profile {profile_id} updated")
         return result
 
     def delete_profile(self, profile_id: int) -> Tuple[bool, str]:
@@ -616,9 +616,9 @@ class Database:
 
         success, message = self._execute_safely(_delete, "Ошибка удаления профиля", (False, "Ошибка БД"))
         if success:
-            logger.info(f"🗑️ {message}")
+            logger.info(f"{message}")
         else:
-            logger.warning(f"⚠️ {message}")
+            logger.warning(f"{message}")
         return success, message
 
     def _add_rules_to_config(
@@ -655,7 +655,7 @@ class Database:
         updated_by: str
     ) -> bool:
         """
-        ⚠️ УСТАРЕВШИЙ МЕТОД — используйте update_profile()
+         УСТАРЕВШИЙ МЕТОД — используйте update_profile()
         Оставлен для обратной совместимости.
         """
         return self.update_profile(

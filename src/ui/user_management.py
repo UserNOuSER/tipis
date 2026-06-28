@@ -1,5 +1,4 @@
 import dearpygui.dearpygui as dpg  # ty:ignore[unresolved-import]
-from datetime import datetime
 import sys
 
 class UserManagementWindow:
@@ -21,7 +20,6 @@ class UserManagementWindow:
         # Фиксированные размеры
         self.window_height = 700
         self.window_width = 1000
-        self.table_height = 450
         
     def create(self):
         """Создаёт окно управления пользователями"""
@@ -44,10 +42,6 @@ class UserManagementWindow:
             with dpg.group(horizontal=True):
                 dpg.add_button(label="[+] Добавить пользователя", 
                               callback=self._show_add_dialog, width=200)
-                dpg.add_button(label="[Ред] Редактировать", 
-                              callback=self._show_edit_dialog, width=170)
-                dpg.add_button(label="[Ключ] Сбросить пароль", 
-                              callback=self._show_reset_password_dialog, width=200)
                 dpg.add_button(label="[Обн] Обновить список", 
                               callback=self._load_users, width=170)
                 
@@ -59,7 +53,7 @@ class UserManagementWindow:
             
             # ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ
             with dpg.child_window(
-                height=self.table_height,
+                height=-1,
                 tag="user_table_container",
                 border=True
             ):
@@ -76,13 +70,7 @@ class UserManagementWindow:
                     dpg.add_table_column(label="Статус", width_fixed=True, init_width_or_weight=100)
                     dpg.add_table_column(label="Действия", width_fixed=True, init_width_or_weight=250)
             
-            dpg.add_spacer(height=10)
             
-            # НИЗ: Кнопки закрытия
-            with dpg.group(horizontal=True):
-                dpg.add_button(label="[X] Закрыть", 
-                              callback=lambda: dpg.configure_item("user_management_window", show=False), 
-                              width=100)
         
         # === МОДАЛЬНЫЕ ОКНА ===
         self._create_add_user_modal()
@@ -252,19 +240,19 @@ class UserManagementWindow:
                 with dpg.group(horizontal=True):
                     dpg.add_button(
                         label="[Ред]",
-                        callback=self._on_edit_user_clicked,  # ✅ Отдельный метод-обёртка
+                        callback=self._on_edit_user_clicked,  #  Отдельный метод-обёртка
                         user_data=user, 
                         width=50, height=25
                     )
                     dpg.add_button(
                         label="[Ключ]",
-                        callback=self._on_reset_password_clicked,  # ✅ Отдельный метод-обёртка
+                        callback=self._on_reset_password_clicked,  #  Отдельный метод-обёртка
                         user_data=user,
                         width=60, height=25
                     )
                     dpg.add_button(
                         label="[Удал]",
-                        callback=self._on_delete_user_clicked,  # ✅ Отдельный метод-обёртка
+                        callback=self._on_delete_user_clicked,  #  Отдельный метод-обёртка
                         user_data=user,
                         width=60, height=25
                     )
@@ -429,7 +417,7 @@ class UserManagementWindow:
         self._open_edit_modal(user)
 
     def _on_reset_password_clicked(self, sender, app_data, user_data):
-        """Обработчик клика по кнопке 🔑 — извлекает пользователя из user_data"""
+        """Обработчик клика по кнопке  — извлекает пользователя из user_data"""
         user = user_data
         if user is None:
             print("Ошибка: user is None в _on_reset_password_clicked", file=sys.stderr)

@@ -35,7 +35,6 @@ class EventLogWindow:
             no_scrollbar=True,
             no_collapse=True
         ):
-            dpg.add_text("ЖУРНАЛ СОБЫТИЙ СИСТЕМЫ АПЗ", color=self.palette.primary + (255,))
             dpg.add_separator()
 
             with dpg.group(horizontal=True):
@@ -67,9 +66,6 @@ class EventLogWindow:
                 dpg.add_button(label="Сбросить", callback=self._reset_filters, width=100)
 
             dpg.add_spacer(height=8)
-            dpg.add_text("💡 Нажмите 🔍 для просмотра деталей события", 
-                        color=self.palette.text_disabled + (255,))
-            dpg.add_spacer(height=5)
 
             with dpg.child_window(
                 height=self.table_height,
@@ -90,7 +86,7 @@ class EventLogWindow:
                     dpg.add_table_column(label="dQ/dt", width_fixed=True, init_width_or_weight=80)
                     dpg.add_table_column(label="Клапан, %", width_fixed=True, init_width_or_weight=90)
                     dpg.add_table_column(label="Статус", width_fixed=True, init_width_or_weight=120)
-                    dpg.add_table_column(label="", width_fixed=True, init_width_or_weight=40)  # ✅ Колонка для кнопки
+                    dpg.add_table_column(label="", width_fixed=True, init_width_or_weight=100)  #  Колонка для кнопки
 
             dpg.add_spacer(height=8)
 
@@ -105,10 +101,10 @@ class EventLogWindow:
                 dpg.add_text("Всего событий: 0", tag="event_count", 
                             color=self.palette.text_primary + (255,))
 
-        # ✅ Создаём окно деталей
+        #  Создаём окно деталей
         self._create_details_window()
         
-        # ✅ Загружаем данные ГДХ для мини-графика
+        #  Загружаем данные ГДХ для мини-графика
         self._load_detail_gdx_data()
         
         self._load_events()
@@ -274,7 +270,7 @@ class EventLogWindow:
             print(f"Ошибка загрузки ГДХ для деталей: {e}", file=sys.stderr)
     
     def _show_event_details(self, sender=None, app_data=None, user_data=None):
-        """Показывает детали события по клику на кнопку 🔍"""
+        """Показывает детали события по клику на кнопку """
         if user_data is None:
             return
         
@@ -330,7 +326,7 @@ class EventLogWindow:
         dpg.set_value("detail_dqdt", f"{event.get('dqdt', 0):.2f} кг/с²")
         dpg.set_value("detail_valve", f"{event.get('valve_position', 0):.1f} %")
         
-        # ✅ Обновляем точку на мини-графике
+        #  Обновляем точку на мини-графике
         q = event.get('q', 0)
         h = event.get('h', 0)
         
@@ -437,7 +433,7 @@ class EventLogWindow:
             else:
                 timestamp_str = str(timestamp)
             
-            # ✅ Получаем event_id для кнопки
+            #  Получаем event_id для кнопки
             event_id = event.get("event_id")
             
             with dpg.table_row(parent="event_table"):
@@ -449,12 +445,12 @@ class EventLogWindow:
                 dpg.add_text(f"{event['valve_position']:.1f}%" if event.get('valve_position') else "0.0%")
                 dpg.add_text(status, color=status_color)
                 
-                # ✅ Кнопка 🔍 вместо двойного клика
+                #  Кнопка  вместо двойного клика
                 dpg.add_button(
-                    label="🔍",
+                    label="Еще",
                     callback=self._show_event_details,
-                    user_data=event_id,  # ✅ Передаём ID события
-                    width=30,
+                    user_data=event_id,  #  Передаём ID события
+                    width=80,
                     height=20
                 )
         
@@ -500,12 +496,12 @@ class EventLogWindow:
                         gas_composition
                     ])
             
-            print(f"✅ Экспорт в {filename} завершен", file=sys.stderr)
+            print(f" Экспорт в {filename} завершен", file=sys.stderr)
             if dpg.does_item_exist("event_count"):
                 dpg.set_value("event_count", f"Экспорт: {filename}")
                 
         except Exception as e:
-            print(f"❌ Ошибка экспорта: {e}", file=sys.stderr)
+            print(f" Ошибка экспорта: {e}", file=sys.stderr)
     
     def show(self):
         """Показывает окно журнала событий"""

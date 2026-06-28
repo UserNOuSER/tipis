@@ -3,8 +3,8 @@ import time
 import random
 from datetime import datetime
 from typing import Dict, Any, Optional
-from dto.dto import SensorData, ProcessedData, FuzzySet, RuleOutput, ControlSignal, Point
-from simpful import FuzzySystem, AutoTriangle  # ty:ignore[unresolved-import]
+from dto.dto import SensorData, ProcessedData, FuzzySet, RuleOutput, ControlSignal
+from simpful import FuzzySystem, TriangleFuzzySet, LinguisticVariable  # ty:ignore[unresolved-import]
 from core.base_engine import IEngine 
 
 # ==========================================
@@ -70,36 +70,41 @@ class FuzzyEngine:
     """Механизм нечёткого вывода на базе simpful (Мамдани)."""
     
     def __init__(self):
-        self.fs = FuzzySystem(show_banner=False)  # Отключаем баннер
+        self.fs = FuzzySystem(show_banner=False)
+        self._margin_sets = {}  # ✅ Храним ссылки на функции принадлежности
+        self._dqdt_sets = {}
         self._setup_default_fuzzy_system()
         self._last_rule_fired = ""
-    
+
     def _setup_default_fuzzy_system(self):
         """Создаёт базовую систему нечёткого вывода"""
         
         # 1. Входная переменная: Маржа помпажа (0-100%)
-        # AutoTriangle автоматически создаёт 3 треугольных нечётких множества
-        margin_lv = AutoTriangle(
-            n_sets=3, 
-            terms=["Low", "Mid", "High"], 
-            universe_of_discourse=[0, 100]
-        )
+        low = TriangleFuzzySet(0, 0, 33, "Low")
+        mid = TriangleFuzzySet(0, 33, 66, "Mid")
+        high = TriangleFuzzySet(33, 100, 100, "High")
+        self._margin_sets = {"Low": low, "Mid": mid, "High": high}
+        
+        margin_lv = LinguisticVariable([low, mid, high], universe_of_discourse=[0, 100])
         self.fs.add_linguistic_variable("margin", margin_lv)
         
         # 2. Входная переменная: Скорость изменения расхода dQ/dt (-10 до +10)
-        dqdt_lv = AutoTriangle(
-            n_sets=3, 
-            terms=["Neg", "Zero", "Pos"], 
-            universe_of_discourse=[-10, 10]
-        )
+        neg = TriangleFuzzySet(-10, -10, -3, "Neg")
+        zero = TriangleFuzzySet(-5, 0, 5, "Zero")
+        pos = TriangleFuzzySet(3, 10, 10, "Pos")
+        self._dqdt_sets = {"Neg": neg, "Zero": zero, "Pos": pos}
+        
+        dqdt_lv = LinguisticVariable([neg, zero, pos], universe_of_discourse=[-10, 10])
         self.fs.add_linguistic_variable("dqdt", dqdt_lv)
         
         # 3. Выходная переменная: Положение клапана (0-100%)
-        valve_lv = AutoTriangle(
-            n_sets=5, 
-            terms=["Close", "Open_25", "Open_50", "Open_75", "Open_100"], 
-            universe_of_discourse=[0, 100]
-        )
+        valve_lv = LinguisticVariable([
+            TriangleFuzzySet(0, 0, 12.5, "Close"),
+            TriangleFuzzySet(12.5, 25, 37.5, "Open_25"),
+            TriangleFuzzySet(37.5, 50, 62.5, "Open_50"),
+            TriangleFuzzySet(62.5, 75, 87.5, "Open_75"),
+            TriangleFuzzySet(87.5, 100, 100, "Open_100"),
+        ], universe_of_discourse=[0, 100])
         self.fs.add_linguistic_variable("valve", valve_lv)
         
         # 4. База правил (IF-THEN)
@@ -112,55 +117,51 @@ class FuzzyEngine:
             "IF (margin IS High) THEN (valve IS Close)",
         ])
         
-        print("✅ FuzzyEngine инициализирован с simpful")
-    
+        print("[OK] FuzzyEngine инициализирован с simpful")
+
     def load_rules_from_db(self, rules_config: dict):
         """Загрузка правил из БД (через CoreBridge)"""
         if "rules" not in rules_config or not rules_config["rules"]:
             return
-        
-        # В будущем здесь будет динамическая загрузка правил из БД
-        print(f"ℹ️ Загрузка правил из БД: {len(rules_config['rules'])} правил")
-    
+        print(f"[INFO] Загрузка правил из БД: {len(rules_config['rules'])} правил")
+
     def fuzzify(self, inputs: ProcessedData) -> FuzzySet:
         """Фаззификация: перевод четких значений в степени принадлежности."""
-        # Устанавливаем входные значения
         margin_val = max(0, min(100, inputs.margin))
         dqdt_val = max(-10, min(10, inputs.dQdt))
         
+        # Устанавливаем значения в систему (нужно для Mamdani_inference)
         self.fs.set_variable("margin", margin_val)
         self.fs.set_variable("dqdt", dqdt_val)
         
-        # Получаем степени принадлежности через прямой вызов функций
         try:
-            margin_sets = self.fs.get_fuzzy_sets("margin")
+            # ✅ Используем наши сохраненные ссылки, а не API simpful
             degrees = {
-                "Low": margin_sets["Low"].get_value(margin_val),
-                "Mid": margin_sets["Mid"].get_value(margin_val),
-                "High": margin_sets["High"].get_value(margin_val),
+                "Low": self._margin_sets["Low"].get_value(margin_val),
+                "Mid": self._margin_sets["Mid"].get_value(margin_val),
+                "High": self._margin_sets["High"].get_value(margin_val),
             }
         except Exception as e:
-            print(f"⚠️ Ошибка фаззификации: {e}", file=sys.stderr)
+            print(f"[WARN] Ошибка фаззификации: {e}", file=sys.stderr)
             degrees = {"Low": 0.0, "Mid": 0.0, "High": 0.0}
         
         return FuzzySet(degrees=degrees)
-    
+
     def evaluate_rules(self, fuzzied: FuzzySet) -> RuleOutput:
         """Оценка базы правил (IF-THEN) через simpful"""
         try:
-            # Выполняем нечёткий вывод (Метод Мамдани)
+            # Mamdani_inference использует значения, установленные через set_variable
             result = self.fs.Mamdani_inference(["valve"])
             valve_pos = result["valve"]
             
-            # Определяем, какое правило сработало (упрощённо)
             if valve_pos > 75:
-                rule_label = "margin=Low AND dqdt=Neg → valve=Open_100"
+                rule_label = "margin=Low AND dqdt=Neg -> valve=Open_100"
             elif valve_pos > 50:
-                rule_label = "margin=Low → valve=Open_75"
+                rule_label = "margin=Low -> valve=Open_75"
             elif valve_pos > 25:
-                rule_label = "margin=Mid → valve=Open_50"
+                rule_label = "margin=Mid -> valve=Open_50"
             else:
-                rule_label = "margin=High → valve=Close"
+                rule_label = "margin=High -> valve=Close"
             
             self._last_rule_fired = rule_label
             
@@ -170,17 +171,16 @@ class FuzzyEngine:
                 label=rule_label
             )
         except Exception as e:
-            print(f"❌ Ошибка нечёткого вывода: {e}", file=sys.stderr)
+            print(f"[ERR] Ошибка нечёткого вывода: {e}", file=sys.stderr)
             return RuleOutput(aggregatedArea=0.0, centroidSum=0.0, label="Error")
-    
+
     def defuzzify(self, output: RuleOutput) -> float:
         """Дефаззификация (уже выполнена в evaluate_rules через simpful)"""
         return output.centroidSum
-    
+
     def get_last_rule_fired(self) -> str:
         """Возвращает последнее сработавшее правило"""
         return self._last_rule_fired
-
 
 class AntiSurgeCore:
     """Главный оркестратор цикла защиты (Фасад)."""
@@ -196,7 +196,7 @@ class AntiSurgeCore:
     def initialize(self, config_path: str = "mock_config.ini"):
         """Инициализация ядра (загрузка конфигов, правил)."""
         self._is_initialized = True
-        print(f"✅ AntiSurgeCore инициализирован (config: {config_path})")
+        print(f" AntiSurgeCore инициализирован (config: {config_path})")
 
     def update_config(self, config: dict):
         """Обновление конфигурации на лету (без перезапуска)"""
@@ -254,7 +254,7 @@ class AntiSurgeCore:
             )
             
         except Exception as e:
-            print(f"❌ Ошибка в цикле обработки: {e}", file=sys.stderr)
+            print(f" Ошибка в цикле обработки: {e}", file=sys.stderr)
             return ControlSignal(
                 valveOpenPercent=0.0,
                 status="ERROR",
@@ -274,7 +274,7 @@ class AntiSurgeCore:
         return self._cycle_count
 
 
-class CoreBridge(IEngine):  # ✅ Наследуем от IEngine
+class CoreBridge(IEngine):  #  Наследуем от IEngine
     """Адаптер для связи Python ↔ C++ (pybind11). В моке оборачивает AntiSurgeCore."""
 
     def __init__(self):
@@ -284,7 +284,7 @@ class CoreBridge(IEngine):  # ✅ Наследуем от IEngine
     def set_db_repository(self, repository):
         self._db_repository = repository
 
-    def init_py(self) -> None:  # ✅ Добавляем аннотацию
+    def init_py(self) -> None:  #  Добавляем аннотацию
         """Инициализация ядра"""
         self.core.initialize("mock_config.ini")
         if self._db_repository:
@@ -293,18 +293,18 @@ class CoreBridge(IEngine):  # ✅ Наследуем от IEngine
                 if config:
                     self.core.update_config(config)
             except Exception as e:
-                print(f"⚠️ Не удалось загрузить конфиг из БД: {e}", file=sys.stderr)
+                print(f"Could not load config from DB: {e}", file=sys.stderr)
 
-    def process_sensor_data(self, Q: float, P_in: float, P_out: float, T: float) -> ControlSignal:  # ✅
+    def process_sensor_data(self, Q: float, P_in: float, P_out: float, T: float) -> ControlSignal:  # 
         """Основной метод для обработки данных"""
         data = SensorData(Q=Q, P_in=P_in, P_out=P_out, T=T)
         return self.core.process_sensor_data(data)
 
-    def update_config(self, config: Dict[str, Any]) -> None:  # ✅ Добавляем аннотацию
+    def update_config(self, config: Dict[str, Any]) -> None:  #  Добавляем аннотацию
         """Обновление конфигурации на лету"""
         self.core.update_config(config)
 
-    # ===== ✅ НОВЫЕ МЕТОДЫ (делегирование к self.core) =====
+    # =====  НОВЫЕ МЕТОДЫ (делегирование к self.core) =====
 
     def get_last_processed(self) -> ProcessedData:
         """Возвращает последние обработанные данные"""

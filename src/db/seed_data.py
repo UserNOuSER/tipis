@@ -21,7 +21,7 @@ def generate_password_hash(password: str) -> str:
 
 def seed_users(session):
     """Создаёт тестовых пользователей"""
-    logger.info("👥 Генерация пользователей...")
+    logger.info(" Генерация пользователей...")
     
     users_data = [
         {"username": "admin", "password": "admin123", "role": "ADMIN"},
@@ -42,12 +42,12 @@ def seed_users(session):
         session.add(user)
     
     session.commit()
-    logger.info(f"✅ Создано {len(users_data)} пользователей")
+    logger.info(f" Создано {len(users_data)} пользователей")
 
 
 def seed_events(session, count=1000):
     """Генерирует реалистичные события с помпажными ситуациями"""
-    logger.info(f"📊 Генерация {count} событий...")
+    logger.info(f" Генерация {count} событий...")
     
     base_time = datetime.now() - timedelta(days=7)
     
@@ -104,12 +104,12 @@ def seed_events(session, count=1000):
         session.add(event)
     
     session.commit()
-    logger.info(f"✅ Создано {count} событий")
+    logger.info(f" Создано {count} событий")
 
 
 def seed_gdx_points(session):
     """Генерирует точки ГДХ для графиков"""
-    logger.info("📈 Генерация точек ГДХ...")
+    logger.info(" Генерация точек ГДХ...")
     
     # Создаём заголовки кривых для разных оборотов
     rpms = [5000, 7500, 10000, 12500]
@@ -143,12 +143,12 @@ def seed_gdx_points(session):
             session.add(point)
     
     session.commit()
-    logger.info(f"✅ Создано {len(rpms)} кривых ГДХ")
+    logger.info(f" Создано {len(rpms)} кривых ГДХ")
 
 
 def seed_surge_boundary(session):
     """Генерирует линию помпажа"""
-    logger.info("🚨 Генерация линии помпажа...")
+    logger.info(" Генерация линии помпажа...")
     
     # Линия помпажа (граница устойчивой работы)
     surge_points = [
@@ -173,7 +173,7 @@ def seed_surge_boundary(session):
         session.add(boundary)
     
     session.commit()
-    logger.info(f"✅ Создано {len(surge_points)} точек линии помпажа")
+    logger.info(f" Создано {len(surge_points)} точек линии помпажа")
 
 
 def run_seeding(db_url="sqlite:///anti_surge_prototype.db"):
@@ -185,20 +185,20 @@ def run_seeding(db_url="sqlite:///anti_surge_prototype.db"):
     try:
         # Проверяем, есть ли уже данные
         if session.query(User).count() > 0:
-            logger.info("ℹ️ Данные уже есть, пропускаем генерацию")
+            logger.info("Data already exists, skipping generation")
             return
         
-        logger.info("🌱 Начинаем генерацию тестовых данных...")
+        logger.info(" Начинаем генерацию тестовых данных...")
         
         seed_users(session)
         seed_events(session, count=1000)
         seed_gdx_points(session)
         seed_surge_boundary(session)
         
-        logger.info("✅ Все тестовые данные сгенерированы!")
+        logger.info(" Все тестовые данные сгенерированы!")
         
     except Exception as e:
-        logger.error(f"❌ Ошибка генерации данных: {e}")
+        logger.error(f" Ошибка генерации данных: {e}")
         session.rollback()
         raise
     finally:
