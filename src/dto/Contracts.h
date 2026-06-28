@@ -7,6 +7,7 @@ struct SensorData {
     double pressure_in = 0.0;
     double pressure_out = 0.0;
     double temperature = 0.0;
+    double rpm = 0.0;
     std::chrono::system_clock::time_point timestamp;
 };
 

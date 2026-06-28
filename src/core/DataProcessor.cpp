@@ -303,8 +303,9 @@ int DataProcessor::detectTrend(const std::vector<double>& data, double threshold
 
     double range = 0.0;
     if (!data.empty()) {
-        auto [min_it, max_it] = std::minmax_element(data.begin(), data.end());
-        range = *max_it - *min_it;
+        double min_val = *std::min_element(data.begin(), data.end());
+        double max_val = *std::max_element(data.begin(), data.end());
+        range = max_val - min_val;
     }
 
     if (range < 1e-12) return 0;
@@ -313,6 +314,8 @@ int DataProcessor::detectTrend(const std::vector<double>& data, double threshold
 
     if (normalized_slope > threshold) return 1;
     if (normalized_slope < -threshold) return -1;
+    
+    return 0;
 }
 
 std::vector<bool> DataProcessor::detectOutliers(const std::vector<double>& data, double sigma_multiplier) {

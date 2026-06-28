@@ -1,7 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <pybind11/chrono.h>  // ВАЖНО: для поддержки std::chrono
-
+#include <pybind11/chrono.h>
 #include "../core/AntiSurgeCore.h"
 #include "../core/DataProcessor.h"
 #include "../core/FuzzyEngine.h"
@@ -13,11 +12,11 @@ PYBIND11_MODULE(fuzzy_core, m) {
     m.doc() = R"pbdoc(
         Fuzzy Core Module - Anti-surge Protection System
         =================================================
-        Модуль для защиты компрессорных установок от помпажа
-        с использованием нечеткой логики
+        пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     )pbdoc";
 
-    // Структура SensorData
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ SensorData
     py::class_<SensorData>(m, "SensorData")
         .def(py::init<>())
         .def_readwrite("flow_rate", &SensorData::flow_rate)
@@ -26,57 +25,60 @@ PYBIND11_MODULE(fuzzy_core, m) {
         .def_readwrite("temperature", &SensorData::temperature)
         .def_readwrite("timestamp", &SensorData::timestamp);
 
-    // Структура ControlCommand
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ControlCommand
     py::class_<ControlCommand>(m, "ControlCommand")
         .def(py::init<>())
         .def_readwrite("bypass_valve_position", &ControlCommand::bypass_valve_position)
         .def_readwrite("alarm_status", &ControlCommand::alarm_status)
         .def_readwrite("timestamp", &ControlCommand::timestamp);
 
-    // Класс AntiSurgeCore
+    // пїЅпїЅпїЅпїЅпїЅ AntiSurgeCore
     py::class_<AntiSurgeCore>(m, "AntiSurgeCore")
         .def(py::init<>())
         .def("initialize", &AntiSurgeCore::initialize,
-            "Инициализация системы защиты",
+            "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ",
             py::arg("config_path"))
         .def("process_sensor_data", &AntiSurgeCore::processSensorData,
-            "Обработка данных с датчиков",
+            "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ",
             py::arg("sensor_data"))
         .def("get_control_command", &AntiSurgeCore::getControlCommand,
-            "Получение управляющей команды")
+            "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ")
         .def("is_surge_detected", &AntiSurgeCore::isSurgeDetected,
-            "Проверка наличия помпажа")
+            "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ")
         .def("get_system_status", &AntiSurgeCore::getSystemStatus,
-            "Получение статуса системы");
+            "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ");
 
-    // Класс DataProcessor
+    // пїЅпїЅпїЅпїЅпїЅ DataProcessor
     py::class_<DataProcessor>(m, "DataProcessor")
         .def(py::init<>())
         .def("filter_noise", &DataProcessor::filterNoise,
-            "Фильтрация шумов",
+            "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ",
             py::arg("data"))
         .def("calculate_derivative", &DataProcessor::calculateDerivative,
-            "Расчет производной",
+            "пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ",
             py::arg("data"))
         .def("smooth_data", &DataProcessor::smoothData,
-            "Сглаживание данных",
+            "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ",
             py::arg("data"),
             py::arg("window_size") = 5);
 
-    // Класс FuzzyEngine
+    // пїЅпїЅпїЅпїЅпїЅ FuzzyEngine
     py::class_<FuzzyEngine>(m, "FuzzyEngine")
         .def(py::init<>())
         .def("load_rules", &FuzzyEngine::loadRules,
-            "Загрузка правил нечеткого вывода",
+            "Р—Р°РіСЂСѓР·РєР° РїСЂР°РІРёР» РёР· С„Р°Р№Р»Р°",
             py::arg("rules_file"))
         .def("infer", &FuzzyEngine::infer,
-            "Нечеткий вывод",
+            "РќРµС‡РµС‚РєРёР№ РІС‹РІРѕРґ",
             py::arg("inputs"))
         .def("defuzzify", &FuzzyEngine::defuzzify,
-            "Дефаззификация результата",
+            "Р”РµС„Р°Р·Р·РёС„РёРєР°С†РёСЏ СЂРµР·СѓР»СЊС‚Р°С‚Р°",
             py::arg("fuzzy_set"))
-        .def("add_rule", &FuzzyEngine::addRule,
-            "Добавление правила",
+        .def("add_rule", py::overload_cast<const std::string&>(&FuzzyEngine::addRule),
+            "Р”РѕР±Р°РІР»РµРЅРёРµ РїСЂР°РІРёР»Р° РёР· СЃС‚СЂРѕРєРё",
+            py::arg("rule"))
+        .def("add_rule_struct", py::overload_cast<const FuzzyRule&>(&FuzzyEngine::addRule),
+            "Р”РѕР±Р°РІР»РµРЅРёРµ РїСЂР°РІРёР»Р° (СЃС‚СЂСѓРєС‚СѓСЂР°)",
             py::arg("rule"));
 
 #ifdef VERSION_INFO
