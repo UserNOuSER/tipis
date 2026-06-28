@@ -1,6 +1,6 @@
 """
-Миграция БД: добавление таблицы Compressor и поля Name в FuzzyConfigs.
-Запускается ОДИН РАЗ при первом старте после обновления моделей.
+Миграция БД: добавление таблицы Compressor, поля Name в FuzzyConfigs,
+и новых колонок ReactionTime/GasComposition в EventLog.
 """
 from sqlalchemy import create_engine, text, inspect  # ty:ignore[unresolved-import]
 from db.init_db import Base
@@ -26,7 +26,7 @@ def run_migration(db_url: str = "sqlite:///anti_surge_prototype.db"):
         else:
             logger.info("ℹ️ Таблица Compressors уже существует")
         
-        # 2. Добавляем колонку Name в FuzzyConfigs, если её нет
+        # 2. Добавляем колонки в FuzzyConfigs, если их нет
         if 'FuzzyConfigs' in existing_tables:
             columns = [col['name'] for col in inspector.get_columns('FuzzyConfigs')]
             
@@ -42,7 +42,23 @@ def run_migration(db_url: str = "sqlite:///anti_surge_prototype.db"):
                 conn.commit()
                 logger.info("✅ Колонка Description добавлена")
         
-        # 3. Заполняем тестовыми данными
+        # 3.  Добавляем колонки в EventLog
+        if 'EventLog' in existing_tables:
+            event_columns = [col['name'] for col in inspector.get_columns('EventLog')]
+            
+            if 'ReactionTime' not in event_columns:
+                logger.info("🏗️ Добавление колонки ReactionTime в EventLog...")
+                conn.execute(text("ALTER TABLE EventLog ADD COLUMN ReactionTime REAL DEFAULT 0.0"))
+                conn.commit()
+                logger.info("✅ Колонка ReactionTime добавлена")
+            
+            if 'GasComposition' not in event_columns:
+                logger.info("🏗️ Добавление колонки GasComposition в EventLog...")
+                conn.execute(text("ALTER TABLE EventLog ADD COLUMN GasComposition TEXT DEFAULT ''"))
+                conn.commit()
+                logger.info("✅ Колонка GasComposition добавлена")
+        
+        # 4. Заполняем тестовыми данными
         _seed_test_data(conn, inspector)
     
     logger.info("✅ Миграция завершена")
@@ -58,7 +74,7 @@ def _seed_test_data(conn, inspector):
     
     logger.info("🌱 Заполнение тестовыми данными...")
     
-    # 1. Обновляем существующий конфиг (ID=1) — даём ему имя
+    # 1. Обновляем существующий конфиг (ID=1)
     conn.execute(text("""
         UPDATE FuzzyConfigs 
         SET Name = 'Стандартный', 
@@ -92,7 +108,7 @@ def _seed_test_data(conn, inspector):
         ('T-500R', 'Solar T-500R', 1)
     """))
     
-    # 4. Добавляем правила для профиля "Агрессивный" (ConfigID=2)
+    # 4. Правила для профиля "Агрессивный" (ConfigID=2)
     conn.execute(text("""
         INSERT INTO FuzzyRules (ConfigID, Version, AntecedentKey, Consequent, Weight, Priority)
         VALUES 
@@ -101,7 +117,7 @@ def _seed_test_data(conn, inspector):
         (2, '1.0.0', 'margin=Low', 'valve=Open_100', 1.0, 3)
     """))
     
-    # 5. Добавляем правила для профиля "Экономный" (ConfigID=3)
+    # 5. Правила для профиля "Экономный" (ConfigID=3)
     conn.execute(text("""
         INSERT INTO FuzzyRules (ConfigID, Version, AntecedentKey, Consequent, Weight, Priority)
         VALUES 

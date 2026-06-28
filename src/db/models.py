@@ -59,11 +59,10 @@ class Compressor(Base):
 
 
 class EventLog(Base):
-    """Журнал событий"""
     __tablename__ = 'EventLog'
     
     EventID = Column(Integer, primary_key=True, autoincrement=True)
-    Timestamp = Column(DateTime, default=func.now())
+    Timestamp = Column(DateTime, nullable=False)
     Q = Column(Float)
     H = Column(Float)
     P_in = Column(Float)
@@ -72,10 +71,13 @@ class EventLog(Base):
     Margin = Column(Float)
     dQdt = Column(Float)
     ValvePosition = Column(Float)
-    RuleFired = Column(String(200), nullable=True)
-    Status = Column(Boolean, default=False)
-    CompressorID = Column(Integer, default=1)
-    UserID = Column(Integer, default=1)
+    RuleFired = Column(String)
+    Status = Column(Boolean)
+    CompressorID = Column(Integer, ForeignKey('Compressors.CompressorID'))
+    UserID = Column(Integer, ForeignKey('Users.UserID'))
+    
+    ReactionTime = Column(Float, default=0.0)      # Время реакции в мс
+    GasComposition = Column(String, default="")    # Состав газа
 
 
 class GDX_Header(Base):
