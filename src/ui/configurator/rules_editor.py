@@ -11,7 +11,7 @@ class RulesEditor:
         self.controller = controller
         self.rules = []
         self.editing_rule_index = None
-        self.deleting_rule_index = None  # ✅ НОВОЕ: индекс удаляемого правила
+        self.deleting_rule_index = None  #  НОВОЕ: индекс удаляемого правила
     
     def create(self, parent_tag):
         """Создаёт таблицу правил"""
@@ -25,14 +25,14 @@ class RulesEditor:
             ):
                 dpg.add_table_column(label="#", width_fixed=True, init_width_or_weight=40)
                 dpg.add_table_column(label="Правило", width_stretch=True)
-                # ✅ Увеличили ширину колонки для 3 кнопок
+                #  Увеличили ширину колонки для 3 кнопок
                 dpg.add_table_column(label="Действия", width_fixed=True, init_width_or_weight=200)
     
     def create_modals(self):
         """Создаёт модальные окна"""
         self._create_rule_modal("add_rule_modal", "Добавить правило", self._add_rule)
         self._create_rule_modal("edit_rule_modal", "Редактировать правило", self._save_edited_rule)
-        self._create_delete_rule_modal()  # ✅ НОВОЕ
+        self._create_delete_rule_modal()  #  НОВОЕ
     
     def _create_rule_modal(self, tag, title, callback):
         """Создаёт модальное окно для правила"""
@@ -144,7 +144,7 @@ class RulesEditor:
                         user_data=idx,
                         width=50, height=25
                     )
-                    # ✅ НОВАЯ КНОПКА УДАЛЕНИЯ
+                    #  НОВАЯ КНОПКА УДАЛЕНИЯ
                     dpg.add_button(
                         label="[Удал]",
                         callback=self._show_delete_modal,
@@ -232,7 +232,7 @@ class RulesEditor:
             print(f"Ошибка редактирования: {e}", file=sys.stderr)
     
     # ==========================================
-    # ✅ НОВЫЕ МЕТОДЫ ДЛЯ УДАЛЕНИЯ
+    #  НОВЫЕ МЕТОДЫ ДЛЯ УДАЛЕНИЯ
     # ==========================================
     def _show_delete_modal(self, sender, app_data, user_data):
         """Показывает модалку подтверждения удаления"""

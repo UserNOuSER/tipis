@@ -206,7 +206,7 @@ class ConfiguratorWindow:
                     user_data=profile["profile_id"],
                     width=180
                 )
-                # ✅ КНОПКА УДАЛЕНИЯ
+                #  КНОПКА УДАЛЕНИЯ
                 dpg.add_button(
                     label="[X]",
                     callback=self._show_delete_profile_modal,
@@ -235,15 +235,15 @@ class ConfiguratorWindow:
             self._update_info_labels()
             self._highlight_current_profile()
             
-            # ✅ Уведомляем AppController о смене компрессора
+            #  Уведомляем AppController о смене компрессора
             if self._app_controller:
                 self._app_controller.set_current_compressor(comp_id)
             
-            # ✅ Уведомляем журнал событий о смене компрессора
+            #  Уведомляем журнал событий о смене компрессора
             if self._event_log_window:
                 self._event_log_window.set_compressor(comp_id)
             
-            print(f"✅ Выбран компрессор: {self.controller.current_compressor_name} "
+            print(f" Выбран компрессор: {self.controller.current_compressor_name} "
                   f"(профиль: {self.controller.current_profile_name})", file=sys.stderr)
 
     def _on_profile_selected(self, sender, app_data, user_data):
@@ -263,7 +263,7 @@ class ConfiguratorWindow:
         if self.controller._load_profile(profile_id):
             self.rules_editor.refresh()
             self._update_info_labels()
-            print(f"✅ Выбран профиль: {self.controller.current_profile_name}", file=sys.stderr)
+            print(f" Выбран профиль: {self.controller.current_profile_name}", file=sys.stderr)
     
     def _highlight_current_profile(self):
         """Подсвечивает текущий профиль в списке"""
@@ -291,29 +291,29 @@ class ConfiguratorWindow:
     def _assign_profile_to_compressor(self, sender=None, app_data=None):
         """Назначает текущий выбранный профиль выбранному компрессору"""
         if self.selected_compressor_id is None:
-            print("⚠️ Выберите компрессор", file=sys.stderr)
+            print("Select a compressor", file=sys.stderr)
             return
         
         if self.selected_profile_id is None:
-            print("⚠️ Выберите профиль", file=sys.stderr)
+            print("Select a profile", file=sys.stderr)
             return
         
         # Проверяем, не тот ли это уже профиль
         comp = next((c for c in self.compressors if c["compressor_id"] == self.selected_compressor_id), None)
         if comp and comp["profile_id"] == self.selected_profile_id:
-            print("ℹ️ Этот профиль уже назначен компрессору", file=sys.stderr)
+            print("This profile is already assigned to the compressor", file=sys.stderr)
             return
         
         if self.controller.assign_profile(self.selected_compressor_id, self.selected_profile_id):
             profile_name = next((p["name"] for p in self.profiles if p["profile_id"] == self.selected_profile_id), "?")
             comp_name = comp["name"] if comp else "?"
-            print(f"✅ Компрессору {comp_name} назначен профиль '{profile_name}'", file=sys.stderr)
+            print(f" Компрессору {comp_name} назначен профиль '{profile_name}'", file=sys.stderr)
             
             # Обновляем список компрессоров (чтобы отобразить новый профиль)
             self._load_compressors()
             self._update_info_labels()
         else:
-            print("❌ Ошибка назначения профиля", file=sys.stderr)
+            print(" Ошибка назначения профиля", file=sys.stderr)
     
     # ==========================================
     # Действия
@@ -321,31 +321,31 @@ class ConfiguratorWindow:
     def _save_to_db(self, sender=None, app_data=None):
         """Сохраняет правила текущего профиля в БД"""
         if self.controller.current_profile_id is None:
-            print("⚠️ Профиль не выбран", file=sys.stderr)
+            print("Profile not selected", file=sys.stderr)
             return
         
         try:
             rules = self.rules_editor.get_rules()
             if self.controller.save_rules(rules):
-                print(f"✅ Правила сохранены в профиль '{self.controller.current_profile_name}'", 
+                print(f" Правила сохранены в профиль '{self.controller.current_profile_name}'", 
                       file=sys.stderr)
                 self.rules_editor.refresh()
             else:
-                print("❌ Ошибка сохранения правил", file=sys.stderr)
+                print(" Ошибка сохранения правил", file=sys.stderr)
         except Exception as e:
-            print(f"❌ Ошибка: {e}", file=sys.stderr)
+            print(f" Ошибка: {e}", file=sys.stderr)
     
     def _run_test(self, sender=None, app_data=None):
         """Запускает тест на истории ВЫБРАННОГО компрессора"""
         if self.controller.current_compressor_id is None:
-            print("⚠️ Компрессор не выбран", file=sys.stderr)
+            print("Compressor not selected", file=sys.stderr)
             return
         
         try:
             results = self.controller.run_test_on_history(events_count=50)
             self.test_modal.show_results(results)
         except Exception as e:
-            print(f"❌ Ошибка тестирования: {e}", file=sys.stderr)
+            print(f" Ошибка тестирования: {e}", file=sys.stderr)
     
     # ==========================================
     # Модалка добавления профиля
@@ -402,11 +402,11 @@ class ConfiguratorWindow:
         )
         
         if profile_id:
-            print(f"✅ Профиль '{name}' создан (ID={profile_id})", file=sys.stderr)
+            print(f" Профиль '{name}' создан (ID={profile_id})", file=sys.stderr)
             dpg.configure_item("add_profile_modal", show=False)
             self._load_profiles()
         else:
-            print("❌ Ошибка создания профиля", file=sys.stderr)
+            print(" Ошибка создания профиля", file=sys.stderr)
 
     # ==========================================
     # Модалка удаления профиля
@@ -468,7 +468,7 @@ class ConfiguratorWindow:
         success, message = self.controller.db.delete_profile(self.deleting_profile_id)
         
         if success:
-            print(f"✅ {message}", file=sys.stderr)
+            print(f" {message}", file=sys.stderr)
             
             # Если удалили текущий профиль — сбрасываем состояние
             if self.deleting_profile_id == self.selected_profile_id:
@@ -478,7 +478,7 @@ class ConfiguratorWindow:
             self._load_profiles()
             self._load_compressors()
         else:
-            print(f"❌ {message}", file=sys.stderr)
+            print(f" {message}", file=sys.stderr)
         
         self.deleting_profile_id = None
         dpg.configure_item("delete_profile_modal", show=False)

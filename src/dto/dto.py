@@ -52,7 +52,7 @@ class ControlSignal:
     lastUsedRule: str = ""
     reactionTime: float = 0.0
     compressorName: str = "CC-45X"
-    # ✅ НОВЫЕ ПОЛЯ для телеметрии
+    #  НОВЫЕ ПОЛЯ для телеметрии
     gasComposition: str = "Природный газ (CH₄ 92%)"
     surgeStatus: str = "АПЗ: Норма"
     marginPercent: float = 0.0

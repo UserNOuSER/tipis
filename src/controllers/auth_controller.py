@@ -17,14 +17,14 @@ class AuthController:
         user_data = self.db.authenticate_user(username, password)
         if user_data:
             self.current_user = user_data
-            logger.info(f"✅ Пользователь {username} авторизован (роль: {user_data['role']})")
+            logger.info(f" Пользователь {username} авторизован (роль: {user_data['role']})")
             return True
         return False
     
     def logout(self):
         """Завершает сессию пользователя"""
         if self.current_user:
-            logger.info(f"👋 Пользователь {self.current_user['username']} вышел из системы")
+            logger.info(f" Пользователь {self.current_user['username']} вышел из системы")
         self.current_user = None
     
     def is_authenticated(self) -> bool:

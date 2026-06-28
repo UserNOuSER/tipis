@@ -79,11 +79,11 @@ class SurgePlot:
                     dpg.add_theme_color(dpg.mvPlotCol_Fill, (255, 255, 0, 255))
             dpg.bind_item_theme("operating_point", point_theme)
         
-        # ✅ УСТАНАВЛИВАЕМ НАЧАЛЬНЫЕ ГРАНИЦЫ (один раз при создании)
+        #  УСТАНАВЛИВАЕМ НАЧАЛЬНЫЕ ГРАНИЦЫ (один раз при создании)
         dpg.set_axis_limits("gdx_x_axis", 0, 200)
         dpg.set_axis_limits("gdx_y_axis", 0, 10000)
         
-        logger.info(f"✅ График ГДХ создан: {len(self.gdx_curves)} кривых")
+        logger.info(f" График ГДХ создан: {len(self.gdx_curves)} кривых")
     
     def _load_gdx_data(self):
         """Загружает данные ГДХ из БД"""
@@ -91,7 +91,7 @@ class SurgePlot:
             points = self.db.get_gdx_points(compressor_id=1)
             
             if not points:
-                logger.warning("⚠️ В БД нет точек ГДХ! Запустите db/seed_gdx.py")
+                logger.warning("No GDX points in database! Run db/seed_gdx.py")
                 return
             
             for point in points:
@@ -106,21 +106,21 @@ class SurgePlot:
                 self.surge_line['x'].append(point['q_surge'])
                 self.surge_line['y'].append(point['h_surge'])
             
-            logger.info(f"📈 Загружено {len(points)} точек ГДХ и {len(surge_points)} точек помпажа")
+            logger.info(f" Загружено {len(points)} точек ГДХ и {len(surge_points)} точек помпажа")
         except Exception as e:
-            logger.error(f"❌ Ошибка загрузки данных ГДХ: {e}")
+            logger.error(f" Ошибка загрузки данных ГДХ: {e}")
     
     def update_operating_point(self, q: float, h: float):
         """Обновляет позицию рабочей точки"""
         try:
-            # ✅ ЛОГИРОВАНИЕ для отладки
-            logger.debug(f"📍 Обновление точки: Q={q:.1f}, H={h:.1f}")
+            #  ЛОГИРОВАНИЕ для отладки
+            logger.debug(f" Обновление точки: Q={q:.1f}, H={h:.1f}")
             
             if dpg.does_item_exist("operating_point"):
                 self.operating_point['x'] = [q]  # ty:ignore[invalid-assignment]
                 self.operating_point['y'] = [h]  # ty:ignore[invalid-assignment]
                 dpg.set_value("operating_point", [self.operating_point['x'], self.operating_point['y']])
             else:
-                logger.warning("⚠️ operating_point не существует!")
+                logger.warning(" operating_point не существует!")
         except Exception as e:
             logger.error(f"Ошибка обновления рабочей точки: {e}")

@@ -121,5 +121,5 @@ class TestModal:
         dpg.set_value("test_diff_count", str(diff_count))
         
         dpg.configure_item("test_results_modal", show=True)
-        print(f"✅ Тест завершён: {len(results)} событий, {match_count} совпадений", 
+        print(f" Тест завершён: {len(results)} событий, {match_count} совпадений", 
               file=sys.stderr)

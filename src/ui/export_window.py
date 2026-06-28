@@ -52,15 +52,15 @@ class ExportWindow:
             dpg.add_spacer(height=5)
             
             with dpg.group(horizontal=True):
-                dpg.add_text("С:")  # ✅ Убрали width=30
+                dpg.add_text("С:")  #  Убрали width=30
                 dpg.add_input_text(
                     tag="export_start_date",
                     default_value=(datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d"),
                     width=150,
                     hint="ГГГГ-ММ-ДД"
                 )
-                dpg.add_spacer(width=10)  # ✅ Добавили отступ вместо width у текста
-                dpg.add_text("По:")  # ✅ Убрали width=30
+                dpg.add_spacer(width=10)  #  Добавили отступ вместо width у текста
+                dpg.add_text("По:")  #  Убрали width=30
                 dpg.add_input_text(
                     tag="export_end_date",
                     default_value=datetime.now().strftime("%Y-%m-%d"),
@@ -151,7 +151,7 @@ class ExportWindow:
                 if end_date:
                     end_date = end_date.replace(hour=23, minute=59, second=59)
             except ValueError:
-                dpg.set_value("export_status", "❌ Неверный формат даты")
+                dpg.set_value("export_status", " Неверный формат даты")
                 dpg.configure_item("export_status", color=self.palette.error + (255,))
                 return
             
@@ -165,7 +165,7 @@ class ExportWindow:
                 status_filters.append("surge")
             
             if not status_filters:
-                dpg.set_value("export_status", "❌ Выберите хотя бы один статус")
+                dpg.set_value("export_status", " Выберите хотя бы один статус")
                 dpg.configure_item("export_status", color=self.palette.error + (255,))
                 return
             
@@ -182,14 +182,14 @@ class ExportWindow:
             )
             
             if success:
-                dpg.set_value("export_status", f"✅ {message}")
+                dpg.set_value("export_status", f" {message}")
                 dpg.configure_item("export_status", color=self.palette.success + (255,))
             else:
-                dpg.set_value("export_status", f"❌ {message}")
+                dpg.set_value("export_status", f" {message}")
                 dpg.configure_item("export_status", color=self.palette.error + (255,))
         
         except Exception as e:
-            dpg.set_value("export_status", f"❌ Ошибка: {e}")
+            dpg.set_value("export_status", f" Ошибка: {e}")
             dpg.configure_item("export_status", color=self.palette.error + (255,))
             print(f"Ошибка экспорта: {e}", file=sys.stderr)
     

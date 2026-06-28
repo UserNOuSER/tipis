@@ -112,7 +112,7 @@ class FuzzyEngine:
             "IF (margin IS High) THEN (valve IS Close)",
         ])
         
-        print("✅ FuzzyEngine инициализирован с simpful")
+        print(f"FuzzyEngine initialized with simpful")
     
     def load_rules_from_db(self, rules_config: dict):
         """Загрузка правил из БД (через CoreBridge)"""
@@ -120,7 +120,7 @@ class FuzzyEngine:
             return
         
         # В будущем здесь будет динамическая загрузка правил из БД
-        print(f"ℹ️ Загрузка правил из БД: {len(rules_config['rules'])} правил")
+        print(f" Загрузка правил из БД: {len(rules_config['rules'])} правил")
     
     def fuzzify(self, inputs: ProcessedData) -> FuzzySet:
         """Фаззификация: перевод четких значений в степени принадлежности."""
@@ -140,7 +140,7 @@ class FuzzyEngine:
                 "High": margin_sets["High"].get_value(margin_val),
             }
         except Exception as e:
-            print(f"⚠️ Ошибка фаззификации: {e}", file=sys.stderr)
+            print(f"Fuzzification error: {e}", file=sys.stderr)
             degrees = {"Low": 0.0, "Mid": 0.0, "High": 0.0}
         
         return FuzzySet(degrees=degrees)
@@ -170,7 +170,7 @@ class FuzzyEngine:
                 label=rule_label
             )
         except Exception as e:
-            print(f"❌ Ошибка нечёткого вывода: {e}", file=sys.stderr)
+            print(f" Ошибка нечёткого вывода: {e}", file=sys.stderr)
             return RuleOutput(aggregatedArea=0.0, centroidSum=0.0, label="Error")
     
     def defuzzify(self, output: RuleOutput) -> float:
@@ -196,7 +196,7 @@ class AntiSurgeCore:
     def initialize(self, config_path: str = "mock_config.ini"):
         """Инициализация ядра (загрузка конфигов, правил)."""
         self._is_initialized = True
-        print(f"✅ AntiSurgeCore инициализирован (config: {config_path})")
+        print(f" AntiSurgeCore инициализирован (config: {config_path})")
 
     def update_config(self, config: dict):
         """Обновление конфигурации на лету (без перезапуска)"""
@@ -254,7 +254,7 @@ class AntiSurgeCore:
             )
             
         except Exception as e:
-            print(f"❌ Ошибка в цикле обработки: {e}", file=sys.stderr)
+            print(f" Ошибка в цикле обработки: {e}", file=sys.stderr)
             return ControlSignal(
                 valveOpenPercent=0.0,
                 status="ERROR",
@@ -274,7 +274,7 @@ class AntiSurgeCore:
         return self._cycle_count
 
 
-class CoreBridge(IEngine):  # ✅ Наследуем от IEngine
+class CoreBridge(IEngine):  #  Наследуем от IEngine
     """Адаптер для связи Python ↔ C++ (pybind11). В моке оборачивает AntiSurgeCore."""
 
     def __init__(self):
@@ -284,7 +284,7 @@ class CoreBridge(IEngine):  # ✅ Наследуем от IEngine
     def set_db_repository(self, repository):
         self._db_repository = repository
 
-    def init_py(self) -> None:  # ✅ Добавляем аннотацию
+    def init_py(self) -> None:  #  Добавляем аннотацию
         """Инициализация ядра"""
         self.core.initialize("mock_config.ini")
         if self._db_repository:
@@ -293,18 +293,18 @@ class CoreBridge(IEngine):  # ✅ Наследуем от IEngine
                 if config:
                     self.core.update_config(config)
             except Exception as e:
-                print(f"⚠️ Не удалось загрузить конфиг из БД: {e}", file=sys.stderr)
+                print(f"Could not load config from DB: {e}", file=sys.stderr)
 
-    def process_sensor_data(self, Q: float, P_in: float, P_out: float, T: float) -> ControlSignal:  # ✅
+    def process_sensor_data(self, Q: float, P_in: float, P_out: float, T: float) -> ControlSignal:  # 
         """Основной метод для обработки данных"""
         data = SensorData(Q=Q, P_in=P_in, P_out=P_out, T=T)
         return self.core.process_sensor_data(data)
 
-    def update_config(self, config: Dict[str, Any]) -> None:  # ✅ Добавляем аннотацию
+    def update_config(self, config: Dict[str, Any]) -> None:  #  Добавляем аннотацию
         """Обновление конфигурации на лету"""
         self.core.update_config(config)
 
-    # ===== ✅ НОВЫЕ МЕТОДЫ (делегирование к self.core) =====
+    # =====  НОВЫЕ МЕТОДЫ (делегирование к self.core) =====
 
     def get_last_processed(self) -> ProcessedData:
         """Возвращает последние обработанные данные"""

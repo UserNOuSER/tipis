@@ -14,7 +14,7 @@ class FuzzyConfig(Base):
     OutputVars = Column(Text)  # JSON
     MembershipParams = Column(Text)  # JSON
     
-    # ✅ НОВОЕ ПОЛЕ: Имя профиля для читаемости
+    #  НОВОЕ ПОЛЕ: Имя профиля для читаемости
     Name = Column(String(100), nullable=True)
     Description = Column(String(500), nullable=True)
     
@@ -52,7 +52,7 @@ class Compressor(Base):
     Model = Column(String(100), nullable=True)
     InstallDate = Column(DateTime, nullable=True)
     
-    # ✅ Связь с профилем правил
+    #  Связь с профилем правил
     ProfileID = Column(Integer, ForeignKey('FuzzyConfigs.ConfigID'), nullable=False)
     
     profile = relationship("FuzzyConfig", back_populates="compressors")

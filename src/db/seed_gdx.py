@@ -18,10 +18,10 @@ def seed_gdx_data(db_url="sqlite:///anti_surge_prototype.db"):
         # Проверяем, есть ли уже данные
         result = conn.execute(text("SELECT COUNT(*) FROM GDX_Headers")).scalar()
         if result > 0:
-            logger.info(f"ℹ️ В БД уже есть {result} кривых ГДХ, пропускаем")
+            logger.info(f"Database already has {result} GDX curves, skipping")
             return
         
-        logger.info("📈 Добавляем точки ГДХ...")
+        logger.info(" Добавляем точки ГДХ...")
         
         # Создаём заголовки кривых для разных оборотов
         rpms = [5000, 7500, 10000, 12500]
@@ -59,10 +59,10 @@ def seed_gdx_data(db_url="sqlite:///anti_surge_prototype.db"):
                     "power": power
                 })
         
-        logger.info(f"✅ Создано {len(rpms)} кривых ГДХ")
+        logger.info(f" Создано {len(rpms)} кривых ГДХ")
         
         # Добавляем линию помпажа
-        logger.info("🚨 Добавляем линию помпажа...")
+        logger.info(" Добавляем линию помпажа...")
         surge_points = [
             (25, 1800),
             (30, 1700),
@@ -83,7 +83,7 @@ def seed_gdx_data(db_url="sqlite:///anti_surge_prototype.db"):
             """), {"q": q, "h": h})
         
         conn.commit()
-        logger.info(f"✅ Создано {len(surge_points)} точек линии помпажа")
+        logger.info(f" Создано {len(surge_points)} точек линии помпажа")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,7 @@
 import json
-import random
 import logging
 from datetime import datetime
-from dto.dto import SensorData, ProcessedData, ControlSignal
+from dto.dto import SensorData
 import dearpygui.dearpygui as dpg  # ty:ignore[unresolved-import]
 from db.repository import Database
 from core.mock_engine import CoreBridge
@@ -21,7 +20,7 @@ class AppController:
         self.db = Database()
         self.telemetry_panel = None
         self.surge_plot = None
-        self.auth_controller = None  # ✅ Инициализируем сразу
+        self.auth_controller = None  # Инициализируем сразу
         
         self.current_sensor_data = SensorData()
         self.current_command = None
@@ -33,7 +32,7 @@ class AppController:
         self.current_compressor_id = 1
         self.current_user_id = 1
         
-        # ✅ ВАЖНО: test_mode по умолчанию False
+        # ВАЖНО: test_mode по умолчанию False
         self.test_mode = False
         self._simulation_running = False
         
@@ -43,12 +42,12 @@ class AppController:
     def set_current_compressor(self, compressor_id: int):
         """Устанавливает текущий компрессор для симуляции"""
         self.current_compressor_id = compressor_id
-        logger.info(f"🔧 Текущий компрессор для симуляции: ID={compressor_id}")
+        logger.info(f"Текущий компрессор для симуляции: ID={compressor_id}")
     
     def set_current_user(self, user_id: int):
         """Устанавливает текущего пользователя для записи событий"""
         self.current_user_id = user_id
-        logger.info(f"👤 Текущий пользователь для записи: ID={user_id}")
+        logger.info(f"Текущий пользователь для записи: ID={user_id}")
 
     def set_telemetry_panel(self, panel):
         """Устанавливает ссылку на панель телеметрии"""
@@ -57,7 +56,7 @@ class AppController:
     def set_auth_controller(self, auth_controller):
         """Устанавливает ссылку на контроллер авторизации"""
         self.auth_controller = auth_controller
-        logger.info(f"✅ AuthController установлен: {auth_controller.get_username()}")
+        logger.info(f"AuthController установлен: {auth_controller.get_username()}")
 
     def _load_initial_config(self):
         """Загружает правила нечеткой логики из БД при старте"""
@@ -65,9 +64,9 @@ class AppController:
             config = self.db.load_fuzzy_config(config_id=1, version="1.0.0")
             if config:
                 self.bridge.update_config(config)
-                logger.info("✅ Конфигурация FuzzyEngine загружена из БД")
+                logger.info("Конфигурация FuzzyEngine загружена из БД")
             else:
-                logger.warning("⚠️ Конфигурация не найдена, используются дефолтные правила")
+                logger.warning("Конфигурация не найдена, используются дефолтные правила")
         except Exception as e:
             logger.error(f"Ошибка загрузки конфигурации: {e}")
 
@@ -79,17 +78,17 @@ class AppController:
             if test_mode:
                 # Тестовый режим — используем мок (CoreBridge)
                 self.bridge.init_py()
-                logger.info("✅ AntiSurgeCore инициализирован (ТЕСТОВЫЙ РЕЖИМ)")
+                logger.info("AntiSurgeCore инициализирован (ТЕСТОВЫЙ РЕЖИМ)")
             else:
                 # Реальный режим — пытаемся загрузить .pyd
                 try:
                     from core.anti_surge_core import AntiSurgeCore
                     self.bridge = AntiSurgeCore()
                     self.bridge.init_py()
-                    logger.info("✅ AntiSurgeCore инициализирован (C++ CORE)")
+                    logger.info("AntiSurgeCore инициализирован (C++ CORE)")
                 except ImportError as e:
-                    logger.error(f"❌ Не удалось загрузить C++ ядро: {e}")
-                    logger.error("💡 Запустите с флагом --test для тестового режима")
+                    logger.error(f"Не удалось загрузить C++ ядро: {e}")
+                    logger.error("Запустите с флагом --test для тестового режима")
                     raise RuntimeError(
                         "C++ ядро не найдено. "
                         "Скомпилируйте core/anti_surge_core.cpp в .pyd "
@@ -124,7 +123,7 @@ class AppController:
         В реальном режиме вызывается по таймеру для опроса C++ ядра.
         """
         try:
-            # ✅ В тестовом режиме этот метод не работает
+            # В тестовом режиме этот метод не работает
             if self.test_mode:
                 return
             
@@ -164,13 +163,13 @@ class AppController:
                 status = self.current_command.status
                 if dpg.does_item_exist("status_text"):
                     if status == "SURGE":
-                        dpg.set_value("status_text", "⚠️ АКТИВНА ЗАЩИТА (ПОМПАЖ)")
+                        dpg.set_value("status_text", " АКТИВНА ЗАЩИТА (ПОМПАЖ)")
                         dpg.configure_item("status_text", color=(239, 68, 68, 255))
                     elif status == "WARNING":
-                        dpg.set_value("status_text", "⚠️ ПРИБЛИЖЕНИЕ К ПОМПАЖУ")
+                        dpg.set_value("status_text", " ПРИБЛИЖЕНИЕ К ПОМПАЖУ")
                         dpg.configure_item("status_text", color=(245, 158, 11, 255))
                     else:
-                        dpg.set_value("status_text", "✅ НОРМА")
+                        dpg.set_value("status_text", " НОРМА")
                         dpg.configure_item("status_text", color=(16, 185, 129, 255))
             
             # 6. Показываем модальное окно при помпаже
@@ -194,7 +193,7 @@ class AppController:
                     "status": self.current_command.status == "SURGE",
                     "compressor_id": self.current_compressor_id,
                     "user_id": self.current_user_id,
-                    # ✅ НОВЫЕ ПОЛЯ
+                    # НОВЫЕ ПОЛЯ
                     "reaction_time": self.current_command.reactionTime,
                     "gas_composition": getattr(self.current_command, 'gasComposition', '')
                 }
@@ -260,7 +259,7 @@ class AppController:
                 json.dump(data, f, indent=2, ensure_ascii=False)
             
             logger.info(f"Данные экспортированы в {filename}")
-            self.update_status_ui("OK", f"✅ Экспорт: {filename}")
+            self.update_status_ui("OK", f" Экспорт: {filename}")
                 
         except Exception as e:
             logger.error(f"Ошибка экспорта: {e}")
@@ -349,8 +348,8 @@ class AppController:
 
     def shutdown(self):
         """Корректное завершение работы приложения"""
-        logger.info("🛑 Завершение работы AppController...")
-        logger.info("✅ AppController завершил работу")
+        logger.info("Завершение работы AppController...")
+        logger.info(" AppController завершил работу")
 
     # ==========================================
     # Эмуляция данных (автогенератор через потоки)
@@ -359,10 +358,9 @@ class AppController:
         """Запускает автоматическую генерацию данных в отдельном потоке"""
         try:
             import threading
-            import time
-            
+                        
             if hasattr(self, '_simulation_running') and self._simulation_running:
-                logger.info("ℹ️ Симуляция уже запущена")
+                logger.info("Симуляция уже запущена")
                 return
             
             # Инициализируем состояние
@@ -373,11 +371,11 @@ class AppController:
             self._simulation_running = True
             self._tick_count = 0
             
-            # ✅ Создаём отдельный поток для симуляции
+            # Создаём отдельный поток для симуляции
             self._sim_thread = threading.Thread(target=self._simulation_loop, daemon=True)
             self._sim_thread.start()
             
-            logger.info(f"✅ Симуляция запущена в потоке (интервал: {interval_ms} мс)")
+            logger.info(f"Simulation started in thread (interval: {interval_ms} ms)")
             logger.info(f"   surge_plot: {hasattr(self, 'surge_plot') and self.surge_plot is not None}")
             logger.info(f"   telemetry_panel: {self.telemetry_panel is not None}")
         except Exception as e:
@@ -386,7 +384,7 @@ class AppController:
     def _simulation_loop(self):
         """Основной цикл симуляции в отдельном потоке"""
         import time
-        logger.info("🔄 Поток симуляции запущен")
+        logger.info("Поток симуляции запущен")
         
         while self._simulation_running:
             try:
@@ -396,7 +394,7 @@ class AppController:
                 logger.error(f"Ошибка в цикле симуляции: {e}", exc_info=True)
                 time.sleep(0.1)  # Пауза при ошибке
         
-        logger.info("🛑 Поток симуляции остановлен")
+        logger.info("Поток симуляции остановлен")
     
     def stop_simulation(self):
         """Останавливает симуляцию"""
@@ -404,7 +402,7 @@ class AppController:
             self._simulation_running = False
             if hasattr(self, '_sim_thread') and self._sim_thread.is_alive():
                 self._sim_thread.join(timeout=1.0)
-            logger.info("🛑 Симуляция остановлена")
+            logger.info("Симуляция остановлена")
         except Exception as e:
             logger.error(f"Ошибка остановки симуляции: {e}", exc_info=True)
     
@@ -412,7 +410,7 @@ class AppController:
         """Устанавливает режим симуляции: normal, warning, surge"""
         if mode in ("normal", "warning", "surge"):
             self._sim_mode = mode
-            logger.info(f"🔄 Режим симуляции: {mode}")
+            logger.info(f"Режим симуляции: {mode}")
     
     def _simulation_tick(self):
         """Один тик симуляции — генерирует новые данные и обновляет UI"""
@@ -421,7 +419,7 @@ class AppController:
             
             # Логирование каждые 50 тиков
             if self._tick_count % 50 == 0:
-                logger.info(f"🔄 Тик #{self._tick_count}: mode={self._sim_mode}, q={self._sim_q:.1f}, h={self._sim_h:.1f}")
+                logger.info(f"Тик #{self._tick_count}: mode={self._sim_mode}, q={self._sim_q:.1f}, h={self._sim_h:.1f}")
             
             # Эмуляция плавного изменения рабочей точки
             if self._sim_mode == "normal":
@@ -512,7 +510,7 @@ class AppController:
                         "status": status == "SURGE",
                         "compressor_id": self.current_compressor_id,
                         "user_id": self.current_user_id,
-                        # ✅ НОВЫЕ ПОЛЯ
+                        #  НОВЫЕ ПОЛЯ
                         "reaction_time": command.reactionTime,
                         "gas_composition": gas_comp
                     }
@@ -521,13 +519,13 @@ class AppController:
                 # Обновляем статус в шапке
                 if dpg.does_item_exist("status_text"):
                     if status == "SURGE":
-                        dpg.set_value("status_text", "⚠️ АКТИВНА ЗАЩИТА (ПОМПАЖ)")
+                        dpg.set_value("status_text", " АКТИВНА ЗАЩИТА (ПОМПАЖ)")
                         dpg.configure_item("status_text", color=(239, 68, 68, 255))
                     elif status == "WARNING":
-                        dpg.set_value("status_text", "⚠️ ПРИБЛИЖЕНИЕ К ПОМПАЖУ")
+                        dpg.set_value("status_text", " ПРИБЛИЖЕНИЕ К ПОМПАЖУ")
                         dpg.configure_item("status_text", color=(245, 158, 11, 255))
                     else:
-                        dpg.set_value("status_text", "✅ НОРМА")
+                        dpg.set_value("status_text", " НОРМА")
                         dpg.configure_item("status_text", color=(16, 185, 129, 255))
             
             self._tick_count += 1
@@ -596,19 +594,19 @@ class AppController:
                             "rules": config.get("rules", [])
                         }
             
-            # ✅ 6. Безопасно получаем имя пользователя
+            # Безопасно получаем имя пользователя
             generated_by = "system"
             if hasattr(self, 'auth_controller') and self.auth_controller is not None:
                 try:
                     generated_by = self.auth_controller.get_username()
                 except Exception as e:
-                    logger.warning(f"⚠️ Не удалось получить имя пользователя: {e}")
+                    logger.warning(f"Не удалось получить имя пользователя: {e}")
             
             # 7. Формируем итоговый отчёт
             report = {
                 "metadata": {
                     "report_date": datetime.now().isoformat(),
-                    "generated_by": generated_by,  # ✅ Используем безопасную переменную
+                    "generated_by": generated_by,  # Используем безопасную переменную
                     "version": "1.0.0",
                     "application": "Система защиты от помпажа"
                 },
@@ -635,9 +633,9 @@ class AppController:
             with open(filename, "w", encoding="utf-8") as f:
                 json.dump(report, f, indent=2, ensure_ascii=False)
             
-            logger.info(f"✅ Отчёт экспортирован: {filename}")
+            logger.info(f"Report exported: {filename}")
             return True, f"Отчёт сохранён: {filename} ({stats['total_events']} событий)"
         
         except Exception as e:
-            logger.error(f"❌ Ошибка экспорта отчёта: {e}", exc_info=True)
+            logger.error(f"Report export error: {e}", exc_info=True)
             return False, f"Ошибка: {e}"

@@ -85,7 +85,7 @@ class LoginWindow:
         if self.auth_controller.login(username, password):
             self.login_success = True
             dpg.configure_item("login_window", show=False)
-            print(f"✅ Вход выполнен: {username}", file=sys.stderr)
+            print(f" Вход выполнен: {username}", file=sys.stderr)
         else:
             dpg.set_value("login_error", "Неверный логин или пароль")
             dpg.set_value("login_password", "")
