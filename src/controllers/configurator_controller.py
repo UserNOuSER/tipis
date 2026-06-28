@@ -32,9 +32,13 @@ class ConfiguratorController:
     # ==========================================
     # Работа с компрессорами
     # ==========================================
-    def get_all_compressors(self) -> List[Dict]:
-        """Получает список всех компрессоров с их профилями"""
-        return self.db.get_all_compressors()
+    def get_all_compressors(self):
+        """Получает список всех компрессоров"""
+        try:
+            return self.db.get_all_compressors()
+        except Exception as e:
+            logger.error(f"Ошибка получения компрессоров: {e}")
+            return []
     
     def select_compressor(self, compressor_id: int) -> bool:
         """
