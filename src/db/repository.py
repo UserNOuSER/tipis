@@ -745,3 +745,54 @@ class Database:
             return False, f"Ошибка БД: {e}"
         finally:
             session.close()
+            
+    def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
+        """
+        Аутентифицирует пользователя по логину и паролю.
+        Возвращает данные пользователя или None.
+        """
+        session = self.get_session()
+        try:
+            from db.models import User
+            import hashlib
+            
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            
+            user = session.query(User).filter_by(
+                Username=username,
+                PasswordHash=password_hash,
+                IsActive=True
+            ).first()
+            
+            if user:
+                # Обновляем время последнего входа
+                user.LastLogin = datetime.now()
+                session.commit()
+                
+                logger.info(f"✅ Пользователь {username} вошёл в систему")
+                return {
+                    "user_id": user.UserID,
+                    "username": user.Username,
+                    "role": user.Role,
+                    "is_active": user.IsActive
+                }
+            else:
+                logger.warning(f"⚠️ Неудачная попытка входа: {username}")
+                return None
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка аутентификации: {e}")
+            return None
+        finally:
+            session.close()
+    
+    def get_user_count(self) -> int:
+        """Возвращает количество пользователей в БД"""
+        session = self.get_session()
+        try:
+            from db.models import User
+            return session.query(User).count()
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Ошибка подсчёта пользователей: {e}")
+            return 0
+        finally:
+            session.close()

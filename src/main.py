@@ -1,57 +1,108 @@
+# main.py
 import sys
-import os
+import logging
 import traceback
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.append(current_dir)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:%(name)s:%(message)s'
+)
+logger = logging.getLogger(__name__)
 
-try:
-    import dearpygui.dearpygui as dpg  # ty:ignore[unresolved-import]
-    from ui.theme import theme_manager  # <-- Импортируем глобальный экземпляр
-    from db.init_db import initialize_database
-    from controllers.app_controller import AppController
-    from ui.main_window import MainWindow
-    from core.mock_engine import AntiSurgeCore
-except Exception as e:
-    print(f"❌ Ошибка импорта: {e}", file=sys.stderr)
-    traceback.print_exc()
-    sys.exit(1)
 
 def main():
     try:
-        print("🔌 Инициализация базы данных...", file=sys.stderr)
+        # 1. Инициализация БД
+        print("🔌 [1/10] Инициализация базы данных...", flush=True)
+        from db.init_db import initialize_database
         initialize_database()
+        print("✅ [1/10] БД готова", flush=True)
         
-        print("⚙️ Инициализация ядра...", file=sys.stderr)
-        core = AntiSurgeCore()
-        core.initialize("mock_config.ini")
+        # 2. Создание AppController
+        print("⚙️ [2/10] Создание AppController...", flush=True)
+        from controllers.app_controller import AppController
+        app_controller = AppController()
+        print("✅ [2/10] AppController создан", flush=True)
         
-        print("🎨 Создание GUI...", file=sys.stderr)
+        # 3. Инициализация системы
+        print("⚙️ [3/10] Инициализация ядра...", flush=True)
+        app_controller.initialize_system()
+        print("✅ [3/10] Ядро инициализировано", flush=True)
+        
+        # 4. Создание AuthController
+        print("🔐 [4/10] Создание AuthController...", flush=True)
+        from controllers.auth_controller import AuthController
+        auth_controller = AuthController()
+        print("✅ [4/10] AuthController создан", flush=True)
+        
+        # 5. Инициализация DearPyGUI (ДО ThemeManager!)
+        print("🖥️ [5/10] Инициализация DearPyGUI...", flush=True)
+        import dearpygui.dearpygui as dpg  # ty:ignore[unresolved-import]
         dpg.create_context()
+        print("✅ [5/10] Контекст DearPyGUI создан", flush=True)
         
-        # Инициализируем глобальный менеджер тем
-        theme_manager.initialize()
+        # 6. Создание и инициализация темы (ПОСЛЕ create_context!)
+        print("🎨 [6/10] Создание темы...", flush=True)
+        from ui.theme import ThemeManager
+        theme_manager = ThemeManager()
+        theme_manager.initialize()  # ✅ ВАЖНО: инициализируем темы!
         palette = theme_manager.get_palette()
+        print("✅ [6/10] Тема готова", flush=True)
         
-        # Создаем контроллер и передаем ему ядро
-        controller = AppController()
+        # 7. Окно авторизации
+        print("🔐 [7/10] Создание окна авторизации...", flush=True)
+        from ui.login_window import LoginWindow
+        login_window = LoginWindow(palette, auth_controller)
+        login_window.create()
+        print("✅ [7/10] Окно авторизации создано", flush=True)
         
-        # Передаем theme_manager в MainWindow
-        main_window = MainWindow(palette, controller, theme_manager)
+        # 8. Viewport
+        print("🪟 [8/10] Создание viewport...", flush=True)
+        dpg.create_viewport(title='Система защиты от помпажа', width=450, height=350)
+        dpg.setup_dearpygui()
+        dpg.show_viewport()
+        print("✅ [8/10] Viewport создан", flush=True)
+        
+        # 9. Ожидание входа
+        print("⏳ [9/10] Ожидание входа пользователя...", flush=True)
+        while dpg.is_dearpygui_running() and not login_window.is_logged_in():
+            dpg.render_dearpygui_frame()
+        
+        if not login_window.is_logged_in():
+            print("❌ Вход отменён", flush=True)
+            dpg.destroy_context()
+            return
+        
+        print("✅ [9/10] Вход выполнен", flush=True)
+        dpg.delete_item("login_window")
+        
+        # 10. Главное окно
+        print("🏠 [10/10] Создание главного окна...", flush=True)
+        from ui.main_window import MainWindow
+        main_window = MainWindow(palette, app_controller, auth_controller)
         main_window.create()
+        print("✅ [10/10] Главное окно создано", flush=True)
         
-        # Инициализируем систему
-        controller.initialize_system()
+        # Обновляем статус в UI
+        app_controller.update_status_ui("OK", "✅ ГОТОВ К РАБОТЕ")
         
-        print("✅ Запуск цикла отрисовки...", file=sys.stderr)
+        # Обновление viewport
+        dpg.set_viewport_title('Система защиты от помпажа v1.0')
+        dpg.set_viewport_width(1220)
+        dpg.set_viewport_height(850)
+        
+        # Запуск
+        print("✅ Запуск цикла отрисовки...", flush=True)
         dpg.start_dearpygui()
+        
+        print("👋 Завершение работы...", flush=True)
         dpg.destroy_context()
         
     except Exception as e:
-        print(f"💥 Критическая ошибка: {e}", file=sys.stderr)
+        logger.error(f"💥 Критическая ошибка: {e}", exc_info=True)
         traceback.print_exc()
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

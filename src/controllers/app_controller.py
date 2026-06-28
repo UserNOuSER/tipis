@@ -10,6 +10,7 @@ from core.mock_engine import CoreBridge
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class AppController:
     """Контроллер: связывает UI, Core и БД"""
     
@@ -26,6 +27,7 @@ class AppController:
         self.pressure_history = []
         self.time_history = []
         
+        # ✅ ВАЖНО: НЕ вызываем dpg здесь!
         # Загружаем конфигурацию из БД
         self._load_initial_config()
 
@@ -43,21 +45,35 @@ class AppController:
             else:
                 logger.warning("⚠️ Конфигурация не найдена, используются дефолтные правила")
         except Exception as e:
-            logger.error(f" Ошибка загрузки конфигурации: {e}")
+            logger.error(f"Ошибка загрузки конфигурации: {e}")
 
     def initialize_system(self):
-        """Инициализация системы"""
+        """Инициализация системы (БЕЗ обращения к DearPyGUI!)"""
         try:
             self.bridge.init_py()
-            status = "ГОТОВ К РАБОТЕ"
-            if dpg.does_item_exist("status_text"):
-                dpg.configure_item("status_text", default_value=f"Статус: {status}")
-                dpg.configure_item("status_text", color=(16, 185, 129, 255))
+            logger.info("✅ AntiSurgeCore инициализирован")
+            # ✅ НЕ обращаемся к dpg здесь — UI ещё не создан!
         except Exception as e:
             logger.error(f"Ошибка инициализации: {e}")
+            raise
+
+    def update_status_ui(self, status: str, message: str):
+        """Обновляет статус в UI (вызывается ПОСЛЕ создания UI)"""
+        try:
+            if not dpg.is_dearpygui_running():
+                return
+            
             if dpg.does_item_exist("status_text"):
-                dpg.configure_item("status_text", default_value=f"Ошибка: {str(e)}")
-                dpg.configure_item("status_text", color=(239, 68, 68, 255))
+                dpg.set_value("status_text", message)
+                
+                if status == "OK":
+                    dpg.configure_item("status_text", color=(16, 185, 129, 255))
+                elif status == "ERROR":
+                    dpg.configure_item("status_text", color=(239, 68, 68, 255))
+                elif status == "WARNING":
+                    dpg.configure_item("status_text", color=(245, 158, 11, 255))
+        except Exception as e:
+            logger.error(f"Ошибка обновления UI: {e}")
 
     def process_data(self, sender=None, app_data=None):
         """Главный цикл обработки данных"""
@@ -90,17 +106,14 @@ class AppController:
                 status = self.current_command.status
                 if dpg.does_item_exist("status_text"):
                     if status == "SURGE":
-                        dpg.configure_item("status_text", 
-                            default_value="⚠️ АКТИВНА ЗАЩИТА (ПОМПАЖ)", 
-                            color=(239, 68, 68, 255))
+                        dpg.set_value("status_text", "⚠️ АКТИВНА ЗАЩИТА (ПОМПАЖ)")
+                        dpg.configure_item("status_text", color=(239, 68, 68, 255))
                     elif status == "WARNING":
-                        dpg.configure_item("status_text", 
-                            default_value="⚠️ ПРИБЛИЖЕНИЕ К ПОМПАЖУ", 
-                            color=(245, 158, 11, 255))
+                        dpg.set_value("status_text", "⚠️ ПРИБЛИЖЕНИЕ К ПОМПАЖУ")
+                        dpg.configure_item("status_text", color=(245, 158, 11, 255))
                     else:
-                        dpg.configure_item("status_text", 
-                            default_value="✅ НОРМА", 
-                            color=(16, 185, 129, 255))
+                        dpg.set_value("status_text", "✅ НОРМА")
+                        dpg.configure_item("status_text", color=(16, 185, 129, 255))
 
             # 5. Показываем модальное окно при помпаже
             if self.bridge.core.is_surge_detected():
@@ -178,8 +191,7 @@ class AppController:
                 json.dump(data, f, indent=2, ensure_ascii=False)
             
             logger.info(f"Данные экспортированы в {filename}")
-            if dpg.does_item_exist("status_text"):
-                dpg.configure_item("status_text", default_value=f"✅ Экспорт: {filename}")
+            self.update_status_ui("OK", f"✅ Экспорт: {filename}")
                 
         except Exception as e:
             logger.error(f"Ошибка экспорта: {e}")
@@ -189,11 +201,7 @@ class AppController:
         if dpg.does_item_exist("surge_alert"):
             dpg.configure_item("surge_alert", show=True)
 
-    def get_event_log(self, 
-                      compressor_id: int = 1,
-                      start_date=None,
-                      end_date=None,
-                      limit: int = 100):
+    def get_event_log(self, compressor_id: int = 1, start_date=None, end_date=None, limit: int = 100):
         """Получает журнал событий из БД"""
         try:
             return self.db.get_event_log(
@@ -213,6 +221,10 @@ class AppController:
             'export_data': self.export_data,
             'test_alarm': self.test_alarm,
         }
+
+    # ==========================================
+    # Управление пользователями
+    # ==========================================
     def get_all_users(self):
         """Получает список всех пользователей"""
         try:
@@ -229,7 +241,7 @@ class AppController:
             logger.error(f"Ошибка создания пользователя: {e}")
             return False
 
-    def update_user(self, user_id: int, username: str | None = None, role: str | None = None, is_active: bool | None = None) -> bool:
+    def update_user(self, user_id: int, username=None, role=None, is_active=None) -> bool:
         """Обновляет данные пользователя"""
         try:
             return self.db.update_user(user_id, username, role, is_active)
@@ -252,4 +264,8 @@ class AppController:
         except Exception as e:
             logger.error(f"Ошибка сброса пароля: {e}")
             return False
-    
+
+    def shutdown(self):
+        """Корректное завершение работы приложения"""
+        logger.info("🛑 Завершение работы AppController...")
+        logger.info("✅ AppController завершил работу")
