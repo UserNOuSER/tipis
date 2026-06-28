@@ -193,7 +193,10 @@ class AppController:
                     "rule_fired": self.current_command.lastUsedRule,
                     "status": self.current_command.status == "SURGE",
                     "compressor_id": self.current_compressor_id,
-                    "user_id": self.current_user_id
+                    "user_id": self.current_user_id,
+                    # ✅ НОВЫЕ ПОЛЯ
+                    "reaction_time": self.current_command.reactionTime,
+                    "gas_composition": getattr(self.current_command, 'gasComposition', '')
                 }
                 self.db.save_event_log(event_data)
             
@@ -507,8 +510,11 @@ class AppController:
                         "valve_position": valve,
                         "rule_fired": last_rule,
                         "status": status == "SURGE",
-                        "compressor_id": self.current_compressor_id,  #  Динамически
-                        "user_id": self.current_user_id               #  Динамически
+                        "compressor_id": self.current_compressor_id,
+                        "user_id": self.current_user_id,
+                        # ✅ НОВЫЕ ПОЛЯ
+                        "reaction_time": command.reactionTime,
+                        "gas_composition": gas_comp
                     }
                     self.db.save_event_log(event_data)
                 

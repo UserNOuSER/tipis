@@ -158,7 +158,6 @@ class Database:
     # Журнал событий
     # ==========================================
     def save_event_log(self, event_data: Dict[str, Any]) -> bool:
-        """Сохраняет событие в журнал"""
         def _save():
             with self._session_scope() as session:
                 event = EventLog(
@@ -174,7 +173,9 @@ class Database:
                     RuleFired=event_data.get("rule_fired", ""),
                     Status=event_data.get("status", False),
                     CompressorID=event_data.get("compressor_id", 1),
-                    UserID=event_data.get("user_id", 1)
+                    UserID=event_data.get("user_id", 1),
+                    ReactionTime=event_data.get("reaction_time", 0.0),
+                    GasComposition=event_data.get("gas_composition", "")
                 )
                 session.add(event)
             return True
@@ -233,7 +234,9 @@ class Database:
             "status": event.Status,
             "rule_fired": event.RuleFired,
             "compressor_id": event.CompressorID,
-            "user_id": event.UserID
+            "user_id": event.UserID,
+            "reaction_time": getattr(event, 'ReactionTime', 0.0) or 0.0,
+            "gas_composition": getattr(event, 'GasComposition', '') or ''
         }
 
     # ==========================================

@@ -91,16 +91,6 @@ class MainWindow:
                 callbacks = self.controller.get_callbacks()
                 self.control_panel.create(parent_tag="control_container", callbacks=callbacks)
                 
-                # Кнопки управления симуляцией
-                dpg.add_spacer(height=5)
-                with dpg.group(horizontal=True):
-                    dpg.add_text("Симуляция:", color=self.palette.text_primary + (255,))
-                    dpg.add_button(label="▶ Старт", callback=self._start_sim, width=80)
-                    dpg.add_button(label="⏸ Стоп", callback=self._stop_sim, width=80)
-                    dpg.add_spacer(width=20)
-                    dpg.add_button(label="Норма", callback=lambda: self.controller.set_simulation_mode("normal"), width=80)
-                    dpg.add_button(label="Предупреждение", callback=lambda: self.controller.set_simulation_mode("warning"), width=120)
-                    dpg.add_button(label="Помпаж", callback=lambda: self.controller.set_simulation_mode("surge"), width=80)
         
         # Модальные окна
         Modals(self.palette).create()
